@@ -13,18 +13,28 @@
 ## Installation
 
 {% if 'library' in crate_shape -%}
+{% if enable_publication -%}
 Add the crate to your project:
 
 ```sh
 cargo add {{ crate_name }}
 ```
 
+{% else -%}
+Depend on a checkout until first publication:
+
+```toml
+[dependencies]
+{{ crate_name }} = { path = "../{{ project_name }}" }
+```
+
+{% endif -%}
 {% endif -%}
 {% if 'executable' in crate_shape -%}
 Build and run from a checkout:
 
 ```sh
-cargo run --locked
+cargo run
 ```
 
 {% endif -%}

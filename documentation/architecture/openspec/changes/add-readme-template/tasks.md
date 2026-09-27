@@ -6,5 +6,5 @@
 
 ## 2. Validation proof
 
-- [ ] 2.1 Confirm all three copiertv variants render `README.md` with the specified sections
+- [x] 2.1 Confirm all three copiertv variants render `README.md` with the specified sections
 - [ ] 2.2 Tag and push after review approval
