@@ -28,6 +28,12 @@ jobs:
       - name: Add Target
         run: rustup target add {% raw %}${{ matrix.cell.target }}{% endraw %}
 
+      - name: Install nextest
+        run: cargo install cargo-nextest --version 0.9.146 --locked
+
+      - name: Generate Lockfile If Missing
+        run: test -f Cargo.lock || cargo generate-lockfile
+
       - name: Build Release
         run: cargo build --release --locked --all-targets
 
@@ -53,6 +59,15 @@ jobs:
       - name: Set Up Toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Generate Lockfile If Missing
+        run: test -f Cargo.lock || cargo generate-lockfile
+
+      - name: Authenticate to crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
       - name: Publish to crates.io
         run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: {% raw %}${{ steps.auth.outputs.token }}{% endraw %}
 {% endif %}

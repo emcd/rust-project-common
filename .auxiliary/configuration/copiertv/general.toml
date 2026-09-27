@@ -14,3 +14,14 @@ directory = "data/copier"
 template-directory = "template"
 preserve = false
 unsafe = false
+
+# Every variant must emit a parseable OS by CPU matrix: the initializer
+# heredoc body must be one JSON object per line with os, cpu, runner,
+# and target keys.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import json,pathlib,sys; lines = (pathlib.Path(sys.argv[1]) / '.github' / 'workflows' / 'core--initializer.yaml').read_text().splitlines(); start = next(i for i, l in enumerate(lines) if l.rstrip().endswith(\"<<'EOF'\")) + 1; end = next(i for i, l in enumerate(lines) if l.strip() == 'EOF'); cells = [json.loads(l) for l in lines[start:end] if l.strip()]; assert cells, 'no matrix cells'; assert all(sorted(c) == ['cpu', 'os', 'runner', 'target'] for c in cells), cells; print(f'{len(cells)} matrix cells OK')",
+  "{project_directory}",
+]

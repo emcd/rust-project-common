@@ -70,7 +70,7 @@ repos:
   - id: cargo-nextest
     name: 'Test (Rust: cargo-nextest)'
     language: system
-    entry: 'cargo nextest run --locked'
+    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo nextest run --locked'"
     pass_filenames: false
     require_serial: true
     stages: [ 'pre-commit' ]
@@ -78,10 +78,12 @@ repos:
 {% if enable_fuzzing %}
   - id: cargo-fuzz
     name: 'Fuzz (cargo-fuzz, bounded)'
-    # Requires `cargo install cargo-fuzz`. The run bound keeps pushes
-    # interactive; raise it for dedicated fuzzing sessions.
+    # Requires a nightly toolchain (`rustup toolchain install nightly`):
+    # cargo-fuzz needs nightly sanitizer support the pinned stable does not
+    # provide. The run bound keeps pushes interactive; raise it for
+    # dedicated fuzzing sessions.
     language: system
-    entry: 'cargo fuzz run fuzz_target_1 -- -runs=1000'
+    entry: 'cargo +nightly fuzz run fuzz_target_1 -- -runs=1000'
     pass_filenames: false
     require_serial: true
     stages: [ 'pre-push' ]
