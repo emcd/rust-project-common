@@ -32,7 +32,7 @@ Sections follow `README.rst`: license-header-free title (Markdown has no comment
 
 ## Migration Plan
 
-Land the template file and the one-line spec allowance, re-validate the answer matrix, tag. No downstream edits.
+Land the template file and the spec allowance (one MODIFIED requirement, one ADDED requirement), re-validate the answer matrix, tag. No downstream edits.
 
 ## Open Questions
 

@@ -9,6 +9,8 @@ The rendered project MUST NOT contain a documentation tree from this template. T
 - **WHEN** a consumer generates a project with default answers
 - **THEN** the rendered tree contains no documentation directory and no PyO3 or Maturin manifest entries
 
+## ADDED Requirements
+
 ### Requirement: Root README is rendered
 
 The template MUST render a root `README.md` in every project with a title, CI status and license badges, an install and usage stub, and a license line. When publication is enabled, crates.io version and docs.rs badges MUST also render.

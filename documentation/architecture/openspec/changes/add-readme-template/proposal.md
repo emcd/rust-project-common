@@ -15,7 +15,7 @@ Rendered projects have no README, unlike every Python-template consumer. The tem
 
 ### Modified Capabilities
 
-- `template-layout`: permit a root `README.md` with required sections; the `documentation/` tree stay banned.
+- `template-layout`: permit a root `README.md` with required sections; the `documentation/` tree stays banned.
 
 ## Impact
 
