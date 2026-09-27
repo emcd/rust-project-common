@@ -1,0 +1,45 @@
+name: copier
+
+on:
+  pull_request:
+    branches: ['*']
+    paths:
+      - '.auxiliary/configuration/copiertv/**'
+      - 'copier.yaml'
+      - 'data/copier/**'
+      - 'template/**'
+  push:
+    branches:
+      - master
+    paths:
+      - '.auxiliary/configuration/copiertv/**'
+      - 'copier.yaml'
+      - 'data/copier/**'
+      - 'template/**'
+  workflow_dispatch: {}
+
+jobs:
+
+  validate_template:
+    name: Validate Copier template (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        variant: ['default', 'maximum', 'executable-only']
+
+    steps:
+
+      - name: Check Out
+        uses: actions/checkout@v4
+
+      - name: Prepare Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Copiertv
+        run: pip install copiertv
+
+      - name: Validate Variant
+        run: copiertv validate ${{ matrix.variant }}
