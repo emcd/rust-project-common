@@ -1,0 +1,58 @@
+{% if real_workspace -%}
+[workspace]
+members = ["."]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+description = "{{ description }}"
+authors = [{% if authors %}{% for author in authors.split(',') %}"{{ author.strip() }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}]
+license = "{{ license }}"
+edition = "{{ edition }}"
+rust-version = "{{ rust_version }}"
+
+[package]
+name = "{{ crate_name }}"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+{% else -%}
+[package]
+name = "{{ crate_name }}"
+version = "0.1.0"
+description = "{{ description }}"
+authors = [{% if authors %}{% for author in authors.split(',') %}"{{ author.strip() }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}]
+license = "{{ license }}"
+edition = "{{ edition }}"
+rust-version = "{{ rust_version }}"
+{% if isolated_workspace %}
+[workspace]
+{% endif -%}
+{% endif -%}
+{% if crate_shape == 'library' or crate_shape == 'both' %}
+[lib]
+name = "{{ crate_name }}"
+path = "src/lib.rs"
+{% endif -%}
+{% if crate_shape == 'binary' or crate_shape == 'both' %}
+[[bin]]
+name = "{{ crate_name }}"
+path = "src/main.rs"
+{% endif -%}
+{% if enable_proptest or enable_criterion %}
+[dev-dependencies]
+{% if enable_proptest -%}
+proptest = "1"
+{% endif -%}
+{% if enable_criterion -%}
+criterion = "0.5"
+{% endif -%}
+{% endif -%}
+{% if enable_criterion %}
+[[bench]]
+name = "benchmark"
+harness = false
+{% endif %}

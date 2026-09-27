@@ -1,0 +1,64 @@
+name: qa
+
+on:
+  pull_request:
+    branches: ['*']
+  push:
+    branches: ['master', 'release-*']
+  workflow_dispatch: {}
+
+jobs:
+
+  initialize:
+    uses: ./.github/workflows/core--initializer.yaml
+
+  lint:
+    needs: [initialize]
+    strategy:
+      fail-fast: true
+      matrix:
+        cell: {% raw %}${{ fromJSON(needs.initialize.outputs.cells) }}{% endraw %}
+    runs-on: {% raw %}${{ matrix.cell.runner }}{% endraw %}
+    steps:
+
+      - name: Check Out
+        uses: actions/checkout@v4
+
+      - name: Set Up Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Target
+        run: rustup target add {% raw %}${{ matrix.cell.target }}{% endraw %}
+
+      - name: Install pre-commit
+        run: pipx install pre-commit==4.6.2
+
+      - name: Install linecheck
+        run: cargo install linecheck --version 1.2.1 --locked
+
+      - name: Install nextest
+        run: cargo install cargo-nextest --version 0.9.146 --locked
+
+      - name: Run pre-commit Stage
+        run: pre-commit run --hook-stage pre-commit --all-files --show-diff-on-failure
+
+  build:
+    needs: [initialize]
+    strategy:
+      fail-fast: true
+      matrix:
+        cell: {% raw %}${{ fromJSON(needs.initialize.outputs.cells) }}{% endraw %}
+    runs-on: {% raw %}${{ matrix.cell.runner }}{% endraw %}
+    steps:
+
+      - name: Check Out
+        uses: actions/checkout@v4
+
+      - name: Set Up Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Target
+        run: rustup target add {% raw %}${{ matrix.cell.target }}{% endraw %}
+
+      - name: Build
+        run: cargo build --locked --all-targets

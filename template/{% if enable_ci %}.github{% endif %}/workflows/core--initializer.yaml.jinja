@@ -1,0 +1,33 @@
+name: init
+
+on:
+  workflow_call:
+    outputs:
+      cells:
+        description: 'Array of OS by CPU cells in JSON format.'
+        value: {% raw %}'${{ jobs.define-constants.outputs.cells }}'{% endraw %}
+
+jobs:
+
+  define-constants:
+    runs-on: ubuntu-latest
+    outputs:
+      cells: {% raw %}'${{ steps.cells.outputs.cells }}'{% endraw %}
+    steps:
+
+      - name: Declare Cells
+        id: cells
+        run: |
+          set -eu
+          cells="$(jq --compact-output --slurp '.' <<'EOF'
+{% set runners = {"linux": {"x86_64": "ubuntu-24.04", "arm64": "ubuntu-24.04-arm"}, "macos": {"x86_64": "macos-26-intel", "arm64": "macos-26"}, "windows": {"x86_64": "windows-2025", "arm64": "windows-11-arm"}} %}
+{% set targets = {"linux": {"x86_64": "x86_64-unknown-linux-gnu", "arm64": "aarch64-unknown-linux-gnu"}, "macos": {"x86_64": "x86_64-apple-darwin", "arm64": "aarch64-apple-darwin"}, "windows": {"x86_64": "x86_64-pc-windows-msvc", "arm64": "aarch64-pc-windows-msvc"}} %}
+{%- for os in operating_systems %}
+{%- for cpu in cpu_architectures %}
+          {"os": "{{ os }}", "cpu": "{{ cpu }}", "runner": "{{ runners[os][cpu] }}", "target": "{{ targets[os][cpu] }}"}
+{%- endfor %}
+{%- endfor %}
+          EOF
+          )"
+          echo "cells=${cells}" >>${GITHUB_OUTPUT}
+          cat ${GITHUB_OUTPUT}

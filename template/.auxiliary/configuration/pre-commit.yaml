@@ -1,0 +1,46 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+default_install_hook_types: [ 'pre-commit', 'pre-push' ]
+
+repos:
+
+- repo: local
+  hooks:
+
+  - id: cargo-clippy
+    name: 'Lint (Rust: Clippy)'
+    language: system
+    entry: 'cargo clippy --all-targets -- -D warnings'
+    pass_filenames: false
+    require_serial: true
+    stages: [ 'pre-commit' ]
+    fail_fast: true
+
+  - id: cargo-fmt
+    name: 'Check Style (Rust)'
+    language: system
+    entry: 'cargo fmt --all -- --check'
+    pass_filenames: false
+    require_serial: true
+    stages: [ 'pre-commit' ]
+    fail_fast: true
+
+  - id: linecheck
+    name: 'Check: Line Counts'
+    language: system
+    entry: 'linecheck --config .auxiliary/configuration/linecheck.yaml src tests'
+    pass_filenames: false
+    always_run: true
+    require_serial: true
+    stages: [ 'pre-commit' ]
+    fail_fast: true
+
+  - id: cargo-nextest
+    name: 'Test (Rust: cargo-nextest)'
+    language: system
+    entry: 'cargo nextest run --locked'
+    pass_filenames: false
+    require_serial: true
+    stages: [ 'pre-commit' ]
+    fail_fast: true
