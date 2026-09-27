@@ -1,4 +1,4 @@
 /target
-{% if crate_shape == 'library' and not real_workspace %}
+{% if 'executable' not in crate_shape and workspace_mode == 'none' %}
 Cargo.lock
 {% endif %}

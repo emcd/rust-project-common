@@ -17,8 +17,8 @@ project_name:
 
 crate_name:
     type: str
-    help: Rust crate name
-    default: "{{ project_name | replace('-', '_') | lower }}"
+    help: Rust crate name (hyphens are fine and preserved)
+    default: "{{ project_name }}"
     validator: >-
         {% if not (crate_name | regex_search("^[a-z][a-z0-9_-]*$")) %}
         Crate name must contain only lowercase letters, numbers, underscores, and hyphens
@@ -39,14 +39,6 @@ license:
     help: SPDX license identifier
     default: 'Apache-2.0'
 
-edition:
-    type: str
-    help: Rust edition
-    choices:
-        - '2024'
-        - '2021'
-    default: '2024'
-
 rust_version:
     type: str
     help: Minimum supported Rust version (also pins rust-toolchain.toml)
@@ -58,31 +50,26 @@ rust_version:
 
 crate_shape:
     type: str
-    help: Crate shape
+    help: Crate components to render
+    multiselect: true
     choices:
         - library
-        - binary
-        - both
-    default: library
-
-real_workspace:
-    type: bool
-    help: 'Use a real Cargo workspace with members and inherited package keys?'
-    default: false
-
-isolated_workspace:
-    type: bool
-    help: 'Add an isolated [workspace] table only to escape an ancestor workspace?'
-    default: false
+        - executable
+    default:
+        - library
     validator: >-
-        {% if real_workspace and isolated_workspace %}
-        Real-workspace mode and an isolated [workspace] table are mutually exclusive
+        {% if not crate_shape %}
+        Must specify at least one crate component
         {% endif %}
 
-enable_ci:
-    type: bool
-    help: 'Render GitHub Actions workflows?'
-    default: true
+workspace_mode:
+    type: str
+    help: Cargo workspace mode
+    choices:
+        - none
+        - real
+        - isolated
+    default: none
 
 operating_systems:
     type: str
@@ -119,22 +106,18 @@ enable_publication:
     type: bool
     help: 'Publish to crates.io with OIDC trusted publishing?'
     default: false
-    validator: >-
-        {% if enable_publication and not enable_ci %}
-        Publication requires CI; there is no release workflow without it
-        {% endif %}
 
-enable_fuzz:
+enable_fuzzing:
     type: bool
     help: 'Include a cargo-fuzz crate (excluded from the workspace)?'
     default: false
 
-enable_criterion:
+enable_benchmarking:
     type: bool
     help: 'Include a Criterion benchmark target?'
     default: false
 
-enable_proptest:
+enable_property_tests:
     type: bool
     help: 'Include proptest in the normal test suite?'
     default: false

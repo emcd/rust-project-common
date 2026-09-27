@@ -1,4 +1,4 @@
-{% if real_workspace -%}
+{% if workspace_mode == 'real' -%}
 [workspace]
 members = ["."]
 resolver = "2"
@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "{{ description }}"
 authors = [{% if authors %}{% for author in authors.split(',') %}"{{ author.strip() }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}]
 license = "{{ license }}"
-edition = "{{ edition }}"
+edition = "2024"
 rust-version = "{{ rust_version }}"
 
 [package]
@@ -26,32 +26,32 @@ version = "0.1.0"
 description = "{{ description }}"
 authors = [{% if authors %}{% for author in authors.split(',') %}"{{ author.strip() }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}]
 license = "{{ license }}"
-edition = "{{ edition }}"
+edition = "2024"
 rust-version = "{{ rust_version }}"
-{% if isolated_workspace %}
+{% if workspace_mode == 'isolated' %}
 [workspace]
 {% endif -%}
 {% endif -%}
-{% if crate_shape == 'library' or crate_shape == 'both' %}
+{% if 'library' in crate_shape %}
 [lib]
-name = "{{ crate_name }}"
+name = "{{ crate_name | replace('-', '_') }}"
 path = "src/lib.rs"
 {% endif -%}
-{% if crate_shape == 'binary' or crate_shape == 'both' %}
+{% if 'executable' in crate_shape %}
 [[bin]]
 name = "{{ crate_name }}"
 path = "src/main.rs"
 {% endif -%}
-{% if enable_proptest or enable_criterion %}
+{% if enable_property_tests or enable_benchmarking %}
 [dev-dependencies]
-{% if enable_proptest -%}
+{% if enable_property_tests -%}
 proptest = "1"
 {% endif -%}
-{% if enable_criterion -%}
+{% if enable_benchmarking -%}
 criterion = "0.5"
 {% endif -%}
 {% endif -%}
-{% if enable_criterion %}
+{% if enable_benchmarking %}
 [[bench]]
 name = "benchmark"
 harness = false

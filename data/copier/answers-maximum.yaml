@@ -1,0 +1,22 @@
+# All-opt-in answers variant.
+project_name: validate-maximum
+crate_name: validate-maximum
+description: "All-opt-in validation render."
+authors: "Validator <validator@noreply.local>"
+license: Apache-2.0
+rust_version: "1.98"
+crate_shape:
+  - library
+  - executable
+workspace_mode: real
+operating_systems:
+  - linux
+  - macos
+  - windows
+cpu_architectures:
+  - x86_64
+  - arm64
+enable_publication: true
+enable_fuzzing: true
+enable_benchmarking: true
+enable_property_tests: true

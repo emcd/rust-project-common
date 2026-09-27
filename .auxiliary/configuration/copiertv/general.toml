@@ -1,0 +1,16 @@
+# Source of truth for template render validation. Validates the Copier
+# template by rendering a fixed answer matrix and checking the output.
+#
+# Local: `copiertv validate default`, `copiertv validate maximum`, or
+# `copiertv validate executable-only` from the repository root.
+# Inspect a render without committing anything:
+# `copiertv validate <variant> --preserve`.
+# List variants: `copiertv survey`.
+
+[answers]
+directory = "data/copier"
+
+[options]
+template-directory = "template"
+preserve = false
+unsafe = false
