@@ -30,5 +30,5 @@
 
 ## 5. Validation proof
 
-- [ ] 5.1 Tag the template and push the tag for consumers
+- [x] 5.1 Tag the template and push the tag for consumers
 - [x] 5.2 Confirm every answer-matrix render matches the specs
