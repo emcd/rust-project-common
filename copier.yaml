@@ -111,6 +111,10 @@ enable_fuzzing:
     type: bool
     help: 'Include a cargo-fuzz crate (excluded from the workspace)?'
     default: false
+    validator: >-
+        {% if enable_fuzzing and 'library' not in crate_shape %}
+        Fuzzing requires the library component: the fuzz crate depends on the library target
+        {% endif %}
 
 enable_benchmarking:
     type: bool

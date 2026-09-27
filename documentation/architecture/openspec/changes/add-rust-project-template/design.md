@@ -2,7 +2,7 @@
 
 Fleet Rust projects share a pre-commit layout and, where CI exists, a three-workflow shape, but they disagree on MSRV, toolchain files, platform matrices, and whether CI runs the hook config or a mirrored subset. Interviews are recorded in `rust-project-common:coordination/general/1` through `6`. Advisor accepted the plan in message `f7463fb0-2f50-48b3-9058-011b3cfc4111`, with the platform wording pin in `9707941f-ea0e-48d7-adf7-7c64813aace2`.
 
-The operator required the Python template's top-level shape: root `copier.yaml`, rendered tree under `template/`. Documentation stays out. This repository dogfoods the template. No downstream repository is edited by this change.
+The operator required the Python template's top-level shape: root `copier.yaml`, rendered tree under `template/`. Documentation stays out. This repository validates the template with `copiertv` over a fixed answer matrix. No downstream repository is edited by this change.
 
 ## Goals / Non-Goals
 

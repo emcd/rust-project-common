@@ -33,6 +33,11 @@ Fuzzing, property-based testing, and benchmarking MUST each be a boolean and MUS
 - **WHEN** a consumer enables fuzzing
 - **THEN** the fuzz crate is excluded from the workspace, the pre-commit stage does not run cargo-fuzz, and a pre-push hook runs a bounded fuzz target
 
+#### Scenario: Fuzzing without the library component
+
+- **WHEN** a consumer enables fuzzing with executable-only shape
+- **THEN** Copier rejects the combination
+
 #### Scenario: Property testing enabled
 
 - **WHEN** a consumer enables property-based testing
