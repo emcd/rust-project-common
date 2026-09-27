@@ -1,7 +1,7 @@
 # {{ project_name }}
 
 [![Tests Status](https://github.com/{{ gh_owner }}/{{ project_name }}/actions/workflows/tester.yaml/badge.svg?branch=master&event=push)](https://github.com/{{ gh_owner }}/{{ project_name }}/actions/workflows/tester.yaml)
-[![Project License](https://img.shields.io/github/license/{{ gh_owner }}/{{ project_name }})](https://github.com/{{ gh_owner }}/{{ project_name }}/blob/master/LICENSE)
+[![Project License](https://img.shields.io/badge/license-{{ license | replace('-', '--') }}-blue)](https://spdx.org/licenses/{{ license }}.html)
 {% if enable_publication -%}
 [![Package Version](https://img.shields.io/crates/v/{{ crate_name }})](https://crates.io/crates/{{ crate_name }}/)
 [![Documentation](https://docs.rs/{{ crate_name }}/badge.svg)](https://docs.rs/{{ crate_name }}/)
