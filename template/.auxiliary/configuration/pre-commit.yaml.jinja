@@ -93,7 +93,7 @@ repos:
   - id: cargo-bench
     name: 'Benchmark (Criterion)'
     language: system
-    entry: 'cargo bench --locked'
+    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo bench --locked'"
     pass_filenames: false
     require_serial: true
     stages: [ 'pre-push' ]
