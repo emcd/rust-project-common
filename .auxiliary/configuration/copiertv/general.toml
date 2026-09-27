@@ -1,0 +1,39 @@
+# Source of truth for template render validation. Validates the Copier
+# template by rendering a fixed answer matrix and checking the output.
+#
+# Local: `copiertv validate default`, `copiertv validate maximum`, or
+# `copiertv validate executable-only` from the repository root.
+# Inspect a render without committing anything:
+# `copiertv validate <variant> --preserve`.
+# List variants: `copiertv survey`.
+
+[answers]
+directory = "data/copier"
+
+[options]
+template-directory = "template"
+preserve = false
+unsafe = false
+
+# Every variant must emit a parseable OS by CPU matrix: the initializer
+# heredoc body must be one JSON object per line with os, cpu, runner,
+# and target keys.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import json,pathlib,sys; lines = (pathlib.Path(sys.argv[1]) / '.github' / 'workflows' / 'core--initializer.yaml').read_text().splitlines(); start = next(i for i, l in enumerate(lines) if l.rstrip().endswith(\"<<'EOF'\")) + 1; end = next(i for i, l in enumerate(lines) if l.strip() == 'EOF'); cells = [json.loads(l) for l in lines[start:end] if l.strip()]; assert cells, 'no matrix cells'; assert all(sorted(c) == ['cpu', 'os', 'runner', 'target'] for c in cells), cells; print(f'{len(cells)} matrix cells OK')",
+  "{project_directory}",
+]
+
+# Every lockfile bootstrap step must pin `shell: bash`: Windows runners
+# default to pwsh, which cannot run the POSIX predicate. Tester always has
+# two bootstraps (lint, build); releaser has one (release-gates) plus the
+# publish bootstrap only when publication is enabled.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / '.github' / 'workflows'; t = (d / 'tester.yaml').read_text(); r = (d / 'releaser.yaml').read_text(); tn, th = t.count('Generate Lockfile If Missing'), t.count('shell: bash'); rn, rh = r.count('Generate Lockfile If Missing'), r.count('shell: bash'); assert (tn, th) == (2, 2), (tn, th); assert (rn, rh) in ((1, 1), (2, 2)), (rn, rh); print('bootstrap shells OK: tester=2 releaser=%d' % rn)",
+  "{project_directory}",
+]

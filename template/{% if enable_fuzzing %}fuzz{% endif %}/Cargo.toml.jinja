@@ -1,0 +1,18 @@
+[package]
+name = "{{ crate_name }}-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+# The fuzz crate is its own workspace root so it stays excluded from any
+# workspace the parent crate belongs to, including an isolated one.
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.{{ crate_name | replace('-', '_') }}]
+path = ".."

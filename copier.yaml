@@ -1,0 +1,127 @@
+_min_copier_version: "9.0"
+
+_answers_file: .auxiliary/configuration/copier-answers.yaml
+_subdirectory: template
+_templates_suffix: .jinja
+
+_skip_if_exists:
+  - .auxiliary/configuration/linecheck.yaml
+
+project_name:
+    type: str
+    help: Project directory or Git repository name
+    validator: >-
+        {% if not (project_name | regex_search("^[a-z][a-z0-9-]*$")) %}
+        Project name must contain only lowercase letters, numbers, and hyphens
+        {% endif %}
+
+crate_name:
+    type: str
+    help: Rust crate name (hyphens are fine and preserved)
+    default: "{{ project_name }}"
+    validator: >-
+        {% if not (crate_name | regex_search("^[a-z][a-z0-9_-]*$")) %}
+        Crate name must contain only lowercase letters, numbers, underscores, and hyphens
+        {% endif %}
+
+description:
+    type: str
+    help: Brief crate description
+    default: ""
+
+authors:
+    type: str
+    help: Crate authors (comma-separated, may be empty)
+    default: ""
+
+license:
+    type: str
+    help: SPDX license identifier
+    default: 'Apache-2.0'
+
+rust_version:
+    type: str
+    help: Minimum supported Rust version (also pins rust-toolchain.toml)
+    default: '1.98'
+    validator: >-
+        {% if not (rust_version | regex_search("^[0-9]+\\.[0-9]+(\\.[0-9]+)?$")) %}
+        Rust version must look like 1.98 or 1.98.0
+        {% endif %}
+
+crate_shape:
+    type: str
+    help: Crate components to render
+    multiselect: true
+    choices:
+        - library
+        - executable
+    default:
+        - library
+    validator: >-
+        {% if not crate_shape %}
+        Must specify at least one crate component
+        {% endif %}
+
+workspace_mode:
+    type: str
+    help: Cargo workspace mode
+    choices:
+        - none
+        - real
+        - isolated
+    default: none
+
+operating_systems:
+    type: str
+    help: Operating systems in the CI matrix
+    multiselect: true
+    choices:
+        - linux
+        - macos
+        - windows
+    default:
+        - linux
+        - macos
+    validator: >-
+        {% if not operating_systems %}
+        Must specify at least one operating system
+        {% endif %}
+
+cpu_architectures:
+    type: str
+    help: CPU architectures in the CI matrix
+    multiselect: true
+    choices:
+        - x86_64
+        - arm64
+    default:
+        - x86_64
+        - arm64
+    validator: >-
+        {% if not cpu_architectures %}
+        Must specify at least one CPU architecture
+        {% endif %}
+
+enable_publication:
+    type: bool
+    help: 'Publish to crates.io with OIDC trusted publishing?'
+    default: false
+
+enable_fuzzing:
+    type: bool
+    help: 'Include a cargo-fuzz crate (excluded from the workspace)?'
+    default: false
+    validator: >-
+        {% if enable_fuzzing and 'library' not in crate_shape %}
+        Fuzzing requires the library component: the fuzz crate depends on the library target
+        {% endif %}
+
+enable_benchmarking:
+    type: bool
+    help: 'Include a Criterion benchmark target?'
+    default: false
+
+enable_property_tests:
+    type: bool
+    help: 'Include proptest in the normal test suite?'
+    default: false

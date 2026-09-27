@@ -2,17 +2,17 @@
 
 ### Requirement: Identity and edition are answers
 
-The template MUST ask for project name, crate name, description, authors, and license. License MUST default to Apache-2.0. Edition MUST default to 2024 and MUST remain selectable as 2021.
+The template MUST ask for project name, crate name, description, authors, and license. License MUST default to Apache-2.0. Crate name MUST default to the project name with hyphens preserved. Edition MUST be 2024; the template MUST NOT offer an edition question.
 
 #### Scenario: New project accepts defaults
 
 - **WHEN** a consumer accepts default answers
 - **THEN** the rendered manifest uses edition 2024 and license Apache-2.0
 
-#### Scenario: Retrofit selects 2021
+#### Scenario: Hyphenated project name
 
-- **WHEN** a consumer answers edition 2021
-- **THEN** the rendered manifest uses edition 2021
+- **WHEN** a consumer names the project `my-crate` and accepts the crate-name default
+- **THEN** the rendered manifest names the package and binary `my-crate` and the `[lib]` target `my_crate`, because library target names cannot contain hyphens
 
 ### Requirement: MSRV and toolchain file are the same pin
 
@@ -30,16 +30,16 @@ The template MUST require a `rust-version` answer and MUST default it to `1.98`.
 
 ### Requirement: Crate shape and workspace are separate answers
 
-The template MUST offer library, binary, or both, and MUST default to a single crate. A real workspace MUST default off. When a real workspace is selected, the template MUST emit members, a root resolver, and `[workspace.package]` inheritance. An isolated `[workspace]` table MUST be a separate boolean, MUST default off, and MUST be mutually exclusive with real-workspace mode. The template MUST NOT emit both.
+The template MUST offer library and executable as a multi-choice answer defaulting to library, and MUST require at least one. Workspace mode MUST be a single choice of none, real, or isolated, defaulting to none. When real-workspace mode is selected, the template MUST emit members, a root resolver, and `[workspace.package]` inheritance. An isolated `[workspace]` table escapes an ancestor workspace.
 
 #### Scenario: Default crate
 
 - **WHEN** a consumer accepts default crate answers
-- **THEN** the rendered project is one crate and has no `[workspace]` table
+- **THEN** the rendered project is one library crate and has no `[workspace]` table
 
-#### Scenario: Real workspace and isolation both requested
+#### Scenario: No shape selected
 
-- **WHEN** a consumer enables both real-workspace mode and an isolated `[workspace]` table
+- **WHEN** a consumer selects neither library nor executable
 - **THEN** Copier rejects the combination
 
 ### Requirement: Extra binaries stay project-owned
@@ -53,14 +53,9 @@ The template MUST NOT synthesize an unbounded `[[bin]]` list. The template MUST 
 
 ### Requirement: rustfmt is stable and rooted
 
-The rendered `rustfmt.toml` MUST live at the repository root. It MUST pin `edition` and `style_edition` to the answered edition. It MUST set `max_width` to 79 and `match_block_trailing_comma` to true. It MUST NOT set `unstable_features` or any nightly-only option.
+The rendered `rustfmt.toml` MUST live at the repository root. It MUST pin `edition` and `style_edition` to 2024. It MUST set `max_width` to 79 and `match_block_trailing_comma` to true. It MUST NOT set `unstable_features` or any nightly-only option.
 
-#### Scenario: Edition 2024
+#### Scenario: Project is rendered
 
-- **WHEN** a consumer answers edition 2024
+- **WHEN** a consumer generates a project
 - **THEN** root `rustfmt.toml` sets both `edition` and `style_edition` to 2024, `max_width` to 79, and does not set `unstable_features`
-
-#### Scenario: Edition 2021
-
-- **WHEN** a consumer answers edition 2021
-- **THEN** root `rustfmt.toml` sets both `edition` and `style_edition` to 2021 and still sets `max_width` to 79

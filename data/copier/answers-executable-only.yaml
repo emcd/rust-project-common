@@ -1,0 +1,22 @@
+# Executable-only shape variant. Every answer is explicit: the validator
+# renders the template directory directly, so question defaults in
+# copier.yaml do not apply here.
+project_name: validate-executable
+crate_name: validate-executable
+description: "Executable-only validation render."
+authors: ""
+license: Apache-2.0
+rust_version: "1.98"
+crate_shape:
+  - executable
+workspace_mode: none
+operating_systems:
+  - linux
+  - macos
+cpu_architectures:
+  - x86_64
+  - arm64
+enable_publication: false
+enable_fuzzing: false
+enable_benchmarking: false
+enable_property_tests: false

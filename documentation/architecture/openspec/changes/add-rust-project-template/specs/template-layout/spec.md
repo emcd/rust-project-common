@@ -18,16 +18,16 @@ The rendered project MUST NOT contain a documentation tree from this template. T
 - **WHEN** a consumer generates a project with default answers
 - **THEN** the rendered tree contains no documentation directory and no PyO3 or Maturin manifest entries
 
-### Requirement: Dogfood uses an explicit template tag
+### Requirement: Validation renders an answer matrix instead of dogfooding
 
-This repository MUST be a consumer of its own template. The answers file MUST record `_commit` as an explicit template tag. A dogfood update MUST run `copier update` with `--vcs-ref` set to that template tag, from a clean consumer tree, after the tag is pushed. The repository MUST NOT add a second tag namespace that Copier could select when `--vcs-ref` is omitted. Template edits MUST NOT be hand-mirrored into the rendered tree.
+This repository MUST NOT commit a rendered dummy project. The template MUST be validated with `copiertv validate` over a fixed answer matrix: default answers, all-opt-in answers, and executable-only shape. Every render MUST satisfy the specs in this change. Each variant file MUST set every answer explicitly, because the validator renders the template directory directly and question defaults do not apply.
 
-#### Scenario: Maintainer updates this repository
+#### Scenario: Answer matrix renders cleanly
 
-- **WHEN** a maintainer changes files under `template/` and dogfoods this repository
-- **THEN** the update uses the pushed template tag as `--vcs-ref` and Copier rewrites `_commit` to that tag
+- **WHEN** a maintainer renders the fixed answer matrix against the working tree
+- **THEN** every render completes and each rendered tree satisfies these specs
 
-#### Scenario: Tag is not pushed
+#### Scenario: No dummy project is committed
 
-- **WHEN** a maintainer runs `copier update` before the template tag is pushed
-- **THEN** the update does not see the unpushed template commit and MUST NOT be treated as a successful dogfood
+- **WHEN** a maintainer validates the template
+- **THEN** no rendered project is committed to this repository
