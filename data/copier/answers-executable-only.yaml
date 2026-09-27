@@ -6,6 +6,7 @@ crate_name: validate-executable
 description: "Executable-only validation render."
 authors: ""
 license: Apache-2.0
+gh_owner: emcd
 rust_version: "1.98"
 crate_shape:
   - executable

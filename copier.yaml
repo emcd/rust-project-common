@@ -39,6 +39,11 @@ license:
     help: SPDX license identifier
     default: 'Apache-2.0'
 
+gh_owner:
+    type: str
+    help: GitHub repository owner (for CI and license badges)
+    default: 'emcd'
+
 rust_version:
     type: str
     help: Minimum supported Rust version (also pins rust-toolchain.toml)

@@ -19,7 +19,7 @@ Consumers need a front door: title, health badges, install path, license. The Py
 
 ### 1. Markdown modeled on the Python README
 
-Sections follow `README.rst`: license-header-free title (Markdown has no comment convention worth mimicking here), badges, install, usage, license. Conditional blocks for publication-gated badges and binary install instructions mirror the Python conditionals.
+Sections follow `README.rst`: license-header-free title (Markdown has no comment convention worth mimicking here), badges, install, usage, license. Conditional blocks for publication-gated badges and binary install instructions mirror the Python conditionals. A `gh_owner` answer defaulting to `emcd` feeds the CI status badge target `https://github.com/<owner>/<project>/actions/workflows/tester.yaml`; the license badge derives from the answered license.
 
 ### 2. Root file, no copier conditional path
 
