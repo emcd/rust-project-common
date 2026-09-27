@@ -42,7 +42,9 @@ jobs:
       - name: Generate Lockfile If Missing
         # Fresh copies have no Cargo.lock (the template cannot pre-resolve
         # dependencies). Bootstrap it once; later runs enforce it via --locked.
+        # Explicit bash: Windows runners default to pwsh, which has no `test`.
         run: test -f Cargo.lock || cargo generate-lockfile
+        shell: bash
 
       - name: Run pre-commit Stage
         run: pre-commit run --hook-stage pre-commit --all-files --show-diff-on-failure
@@ -67,6 +69,7 @@ jobs:
 
       - name: Generate Lockfile If Missing
         run: test -f Cargo.lock || cargo generate-lockfile
+        shell: bash
 
       - name: Build
         run: cargo build --locked --all-targets
