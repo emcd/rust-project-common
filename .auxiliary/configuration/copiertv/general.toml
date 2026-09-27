@@ -27,12 +27,13 @@ args = [
 ]
 
 # Every lockfile bootstrap step must pin `shell: bash`: Windows runners
-# default to pwsh, which cannot run the POSIX predicate. Two in tester
-# (lint, build), two in releaser (release-gates, publish).
+# default to pwsh, which cannot run the POSIX predicate. Tester always has
+# two bootstraps (lint, build); releaser has one (release-gates) plus the
+# publish bootstrap only when publication is enabled.
 [[commands]]
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / '.github' / 'workflows'; counts = {f: (d / f).read_text().count('shell: bash') for f in ('tester.yaml', 'releaser.yaml')}; assert counts == {'tester.yaml': 2, 'releaser.yaml': 2}, counts; print(f\"bootstrap shells OK: {counts}\")",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / '.github' / 'workflows'; t = (d / 'tester.yaml').read_text(); r = (d / 'releaser.yaml').read_text(); tn, th = t.count('Generate Lockfile If Missing'), t.count('shell: bash'); rn, rh = r.count('Generate Lockfile If Missing'), r.count('shell: bash'); assert (tn, th) == (2, 2), (tn, th); assert (rn, rh) in ((1, 1), (2, 2)), (rn, rh); print('bootstrap shells OK: tester=2 releaser=%d' % rn)",
   "{project_directory}",
 ]
