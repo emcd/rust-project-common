@@ -1,0 +1,37 @@
+# {{ project_name }}
+
+[![Tests Status](https://github.com/{{ gh_owner }}/{{ project_name }}/actions/workflows/tester.yaml/badge.svg?branch=master&event=push)](https://github.com/{{ gh_owner }}/{{ project_name }}/actions/workflows/tester.yaml)
+[![Project License](https://img.shields.io/github/license/{{ gh_owner }}/{{ project_name }})](https://github.com/{{ gh_owner }}/{{ project_name }}/blob/master/LICENSE)
+{% if enable_publication -%}
+[![Package Version](https://img.shields.io/crates/v/{{ crate_name }})](https://crates.io/crates/{{ crate_name }}/)
+[![Documentation](https://docs.rs/{{ crate_name }}/badge.svg)](https://docs.rs/{{ crate_name }}/)
+{% endif -%}
+{{ description }}
+
+> TODO: Provide project description and key features.
+
+## Installation
+
+{% if 'library' in crate_shape -%}
+Add the crate to your project:
+
+```sh
+cargo add {{ crate_name }}
+```
+
+{% endif -%}
+{% if 'executable' in crate_shape -%}
+Build and run from a checkout:
+
+```sh
+cargo run --locked
+```
+
+{% endif -%}
+## Usage
+
+> TODO: Provide usage examples.
+
+## License
+
+This project is licensed under the terms of the {{ license }} license.
