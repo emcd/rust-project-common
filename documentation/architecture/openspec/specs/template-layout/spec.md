@@ -39,13 +39,12 @@ This repository MUST NOT commit a rendered dummy project. The template MUST be v
 - **THEN** no rendered project is committed to this repository
 
 ### Requirement: Root README is rendered
-
-The template MUST render a root `README.md` in every project with a title, CI status and license badges, an install and usage stub, and a license line. The template MUST ask for a GitHub repository owner defaulting to `emcd`. The CI status badge MUST target `https://github.com/<owner>/<project>/actions/workflows/tester.yaml` and the license badge MUST derive from the answered license. When publication is enabled, crates.io version and docs.rs badges MUST also render.
+The template MUST render a root `README.md` in every project with a title, CI status and license badges, a usage stub, and a license line. The template MUST ask for a GitHub repository owner defaulting to `emcd`. The CI status badge MUST target `https://github.com/<owner>/<project>/actions/workflows/tester.yaml` and the license badge MUST derive from the answered license. When publication is enabled, crates.io version and docs.rs badges MUST also render. The `## Installation` section MUST render only when publication is enabled: registry install notes for the selected components. An `Additional Badges` section MUST carry last-commit, Copier, and pre-commit badges, plus a crates.io downloads badge when publication is enabled.
 
 #### Scenario: Default project README
 
 - **WHEN** a consumer generates a project with default answers
-- **THEN** root `README.md` exists with title, CI status and license badges, install and usage stub, and license line, and no crates.io badges
+- **THEN** root `README.md` exists with title, CI status and license badges, usage stub, additional badges, and license line, and no Installation section or crates.io badges
 
 #### Scenario: Custom GitHub owner
 
@@ -55,4 +54,4 @@ The template MUST render a root `README.md` in every project with a title, CI st
 #### Scenario: Publication enabled README
 
 - **WHEN** a consumer enables publication
-- **THEN** root `README.md` additionally carries crates.io version and docs.rs badges
+- **THEN** root `README.md` additionally carries crates.io version and docs.rs badges plus an Installation section with registry install notes
