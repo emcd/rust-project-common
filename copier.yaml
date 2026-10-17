@@ -55,7 +55,7 @@ rust_version:
 
 crate_shape:
     type: str
-    help: Crate components to render
+    help: Crate components to render (executables live in src/bin/ to assume multiplicity from the beginning)
     multiselect: true
     choices:
         - library

@@ -40,7 +40,7 @@ path = "src/lib.rs"
 {% if 'executable' in crate_shape %}
 [[bin]]
 name = "{{ crate_name }}"
-path = "src/main.rs"
+path = "src/bin/{{ crate_name }}.rs"
 {% endif -%}
 {% if enable_property_tests or enable_benchmarking %}
 [dev-dependencies]
