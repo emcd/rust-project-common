@@ -1,6 +1,6 @@
 ## Context
 
-Copier writes the answers file only if the template ships `{{ _copier_conf.answers_file }}.jinja` (proven against Copier 9.18.2; the Python template has it, ours did not). The authors `[]` crash reproduces in `cast_answer` before any validator runs, so it is only reachable via hand-edited answers files, which the generated file removes the need for. `src/main.rs` as the default bin hijacks `cargo run` in multi-bin projects and is resurrected by every update; `src/bin/` assumes multiplicity from the start at the cost of `cargo new` idiom parity.
+Copier writes the answers file only if the template ships `{{ _copier_conf.answers_file }}.jinja` (proven against Copier 9.18.2; the Python template has it, ours did not). The authors `[]` crash reproduces in `cast_answer` before any validator runs, so neither validators nor prompt design can guard it; it is reachable via hand-edited answers files and via API or data-file input. Machine-written files always serialize correctly, which is what the answers template guarantees. `src/main.rs` as the default bin hijacks `cargo run` in multi-bin projects and is resurrected by every update; `src/bin/` assumes multiplicity from the start at the cost of `cargo new` idiom parity.
 
 ## Goals / Non-Goals
 
