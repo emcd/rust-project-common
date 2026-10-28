@@ -20,7 +20,7 @@ Same mechanism as the entry-point guard, proven on Copier 9.18.2: templated `_sk
 
 ## Risks / Trade-offs
 
-- [Template improvements to the stub never reach consumers who implemented it] → Accepted; implemented code is consumer-owned by definition.
+- [Template improvements to the stub never reach consumers who already have the file] → Accepted. The guard skips on presence, not authorship; implemented code is consumer-owned by definition.
 
 ## Migration Plan
 
