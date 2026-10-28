@@ -49,7 +49,7 @@ The template MUST offer library and executable as a multi-choice answer defaulti
 - **THEN** Copier rejects the combination
 
 ### Requirement: Extra binaries stay project-owned
-The template MUST NOT synthesize an unbounded `[[bin]]` list. The template MUST render its executable target as `src/bin/<crate-name>.rs`, never `src/main.rs`, assuming multiple executables from the beginning. The rendered executable path MUST be listed in `_skip_if_exists` so an already-implemented entry point is never overwritten; the stub renders only when the file is absent. The template MUST render its own bin entries from answers in a stable manifest location. Binaries added after the first copy MUST be project-owned; on update, Copier's 3-way merge MUST carry those entries forward, surfacing conflict markers on overlap rather than silently overwriting them.
+The template MUST NOT synthesize an unbounded `[[bin]]` list. The template MUST render its executable target as `src/bin/<crate-name>.rs`, never `src/main.rs`, assuming multiple executables from the beginning. The template MUST render its own bin entries from answers in a stable manifest location. Binaries added after the first copy MUST be project-owned; on update, Copier's 3-way merge MUST carry those entries forward, surfacing conflict markers on overlap rather than silently overwriting them.
 
 #### Scenario: Consumer adds a second binary
 
@@ -61,11 +61,6 @@ The template MUST NOT synthesize an unbounded `[[bin]]` list. The template MUST 
 - **WHEN** a consumer with additional binaries under `src/bin/` runs `copier update`
 - **THEN** no `src/main.rs` appears and the default `cargo run` target is unchanged
 
-#### Scenario: Implemented entry point exists
-
-- **WHEN** `src/bin/<crate-name>.rs` already exists with consumer code and the template is copied or updated
-- **THEN** the existing file is preserved and the stub does not overwrite it
-
 ### Requirement: rustfmt is stable and rooted
 
 The rendered `rustfmt.toml` MUST live at the repository root. It MUST pin `edition` and `style_edition` to 2024. It MUST set `max_width` to 79 and `match_block_trailing_comma` to true. It MUST NOT set `unstable_features` or any nightly-only option.
@@ -74,3 +69,16 @@ The rendered `rustfmt.toml` MUST live at the repository root. It MUST pin `editi
 
 - **WHEN** a consumer generates a project
 - **THEN** root `rustfmt.toml` sets both `edition` and `style_edition` to 2024, `max_width` to 79, and does not set `unstable_features`
+
+### Requirement: Template-owned stubs are protected from overwrite
+The rendered executable path `src/bin/<crate-name>.rs` MUST be listed in `_skip_if_exists` so an already-implemented entry point is never overwritten; the stub renders only when the file is absent. The rendered library path `src/lib.rs` MUST be listed in `_skip_if_exists` under the same terms.
+
+#### Scenario: Implemented entry point exists
+
+- **WHEN** `src/bin/<crate-name>.rs` already exists with consumer code and the template is copied or updated
+- **THEN** the existing file is preserved and the stub does not overwrite it
+
+#### Scenario: Implemented library root exists
+
+- **WHEN** `src/lib.rs` already exists with consumer code and the template is copied or updated
+- **THEN** the existing file is preserved and the stub does not overwrite it
