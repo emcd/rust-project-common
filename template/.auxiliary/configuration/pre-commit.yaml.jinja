@@ -1,7 +1,7 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 
-default_install_hook_types: [ 'pre-commit', 'pre-push' ]
+default_install_hook_types: [ 'pre-commit', 'pre-push', 'pre-merge-commit' ]
 
 repos:
 
@@ -45,7 +45,7 @@ repos:
     entry: 'cargo clippy --all-targets -- -D warnings'
     pass_filenames: false
     require_serial: true
-    stages: [ 'pre-commit' ]
+    stages: [ 'pre-commit', 'pre-merge-commit' ]
     fail_fast: true
 
   - id: cargo-fmt
@@ -54,7 +54,7 @@ repos:
     entry: 'cargo fmt --all -- --check'
     pass_filenames: false
     require_serial: true
-    stages: [ 'pre-commit' ]
+    stages: [ 'pre-commit', 'pre-merge-commit' ]
     fail_fast: true
 
   - id: linecheck
@@ -64,7 +64,7 @@ repos:
     pass_filenames: false
     always_run: true
     require_serial: true
-    stages: [ 'pre-commit' ]
+    stages: [ 'pre-commit', 'pre-merge-commit' ]
     fail_fast: true
 
   - id: cargo-nextest
@@ -73,7 +73,7 @@ repos:
     entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo nextest run --locked'"
     pass_filenames: false
     require_serial: true
-    stages: [ 'pre-commit' ]
+    stages: [ 'pre-commit', 'pre-merge-commit' ]
     fail_fast: true
 {% if enable_fuzzing %}
   - id: cargo-fuzz
