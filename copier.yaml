@@ -7,6 +7,7 @@ _templates_suffix: .jinja
 _skip_if_exists:
   - .auxiliary/configuration/linecheck.yaml
   - src/bin/{{ crate_name }}.rs
+  - src/lib.rs
 
 project_name:
     type: str
