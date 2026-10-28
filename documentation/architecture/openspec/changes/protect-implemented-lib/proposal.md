@@ -5,7 +5,7 @@ The LitRPG dry render proved the empty `src/lib.rs` stub would overwrite an impl
 ## What Changes
 
 - Add the rendered library path to `_skip_if_exists` so an implemented `src/lib.rs` is never overwritten; the stub renders only when absent.
-- Amend the Extra binaries requirement (now covering both template-owned stubs).
+- Narrow "Extra binaries stay project-owned" to the manifest and binary merge, and add a dedicated "Template-owned stubs are protected from overwrite" requirement carrying both `_skip_if_exists` MUSTs and both scenarios.
 
 ## Capabilities
 
