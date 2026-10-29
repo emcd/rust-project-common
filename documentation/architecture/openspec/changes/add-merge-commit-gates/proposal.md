@@ -1,6 +1,6 @@
 ## Why
 
-`git merge` creates its commit via the `pre-merge-commit` hook and never invokes `pre-commit`, so the fast fail-fast gates never ran on merge commits. Agentmux landed an over-cap file at integration with no signal for exactly this reason.
+A merge creates its commit through the `pre-merge-commit` hook and never invokes `pre-commit`, so merge commits run none of the fast gates. Any commit that arrives through a merge path is therefore ungated by the fast gates, and a merge is a normal way for over-cap or failing code to enter a trunk. (The Agentmux over-cap incident is a case of dark gates from hooks never installed — a different failure with a different fix.)
 
 ## What Changes
 

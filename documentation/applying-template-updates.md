@@ -6,8 +6,10 @@ already-consumed repository with `copier update`.
 
 ## Principles
 
-1. **Reconcile, do not blindly accept.** A template copy renders generic
-   content. Project-owned files always win on conflict: `Cargo.toml`
+1. **Accept structure and baselines from the template; preserve
+   project-specific content.** The template owns structure, pins,
+   baselines, and gates; the consumer owns content, metadata, and
+   customizations. On conflict, project-owned files win: `Cargo.toml`
    metadata (version, features, test targets, include lists), `README.md`,
    `.github/workflows/*`, custom pre-commit hooks, `.gitignore`, and any
    implemented source files.
@@ -16,12 +18,13 @@ already-consumed repository with `copier update`.
    files), never silent overwrites — except `_skip_if_exists` paths, which
    are preserved as-is. Resolve every marker before committing; the
    `check-merge-conflict` hook is a backstop, not the plan.
-3. **Keep the template-owned core.** After reconciling, the consumer should
-   converge on: root `rust-toolchain.toml` (channel equals `rust-version`),
-   root `rustfmt.toml`, `linecheck` hook and config, template-owned hook
-   definitions merged with project-owned custom hooks (resolve conflicts
-   keeping both sides — never strip one side), CI workflows (or a conscious
-   strip decision), and the recorded answers file.
+3. **Keep the template-owned core.** After reconciling per Principle 1,
+   the consumer should converge on: root `rust-toolchain.toml` (channel
+   equals `rust-version`), root `rustfmt.toml`, `linecheck` hook and
+   config, template-owned hook definitions merged with project-owned
+   custom hooks (resolve conflicts keeping both sides — never strip one
+   side), CI workflows (or a conscious strip decision), and the recorded
+   answers file.
 4. **Never hand-edit the answers file.** It is overwritten by Copier. Drive
    answers with `--data-file` plus `--skip-answered`, and copy from the
    remote template source (`gh:emcd/rust-project-common`), tracking latest
@@ -61,6 +64,7 @@ already-consumed repository with `copier update`.
 
 - Clean tree. Note the template ref being updated from and to.
 - Run `copier update`; resolve all markers and `.rej` files.
+- Re-run `pre-commit install --config .auxiliary/configuration/pre-commit.yaml` so any new hook types land — updates never reinstall hooks.
 - Run `agentsmgr populate`.
 - Re-verify hooks and tests; commit.
 
