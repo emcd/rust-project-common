@@ -75,6 +75,16 @@ repos:
     require_serial: true
     stages: [ 'pre-commit', 'pre-merge-commit' ]
     fail_fast: true
+{%- if 'library' in crate_shape %}
+  - id: cargo-doctest
+    name: 'Test (Rust: doctests)'
+    language: system
+    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo test --doc --locked'"
+    pass_filenames: false
+    require_serial: true
+    stages: [ 'pre-commit', 'pre-merge-commit' ]
+    fail_fast: true
+{%- endif %}
 {%- if enable_fuzzing %}
   - id: cargo-fuzz
     name: 'Fuzz (cargo-fuzz, bounded)'
