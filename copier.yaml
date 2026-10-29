@@ -4,6 +4,12 @@ _answers_file: .auxiliary/configuration/copier-answers.yaml
 _subdirectory: template
 _templates_suffix: .jinja
 
+_message_after_copy: |
+    Template copy complete. Before committing: read the template application guide at https://github.com/emcd/rust-project-common/blob/master/documentation/applying-template-updates.md — reconcile project-owned files, resolve any conflict markers, then run agentsmgr populate.
+
+_message_after_update: |
+    Template update complete. Before committing: read the template application guide at https://github.com/emcd/rust-project-common/blob/master/documentation/applying-template-updates.md — reconcile project-owned files, resolve any conflict markers, then run agentsmgr populate.
+
 _skip_if_exists:
   - .auxiliary/configuration/linecheck.yaml
   - src/bin/{{ crate_name }}.rs
