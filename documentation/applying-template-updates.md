@@ -14,10 +14,12 @@ already-consumed repository with `copier update`.
    `.github/workflows/*`, custom pre-commit hooks, `.gitignore`, and any
    implemented source files.
 2. **Conflicts are normal and visible.** `copier update` performs a 3-way
-   merge. Overlapping changes surface as inline conflict markers (or `.rej`
-   files), never silent overwrites — except `_skip_if_exists` paths, which
-   are preserved as-is. Resolve every marker before committing; the
-   `check-merge-conflict` hook is a backstop, not the plan.
+   merge. Overlapping changes surface as inline conflict markers, never
+   silent overwrites — except `_skip_if_exists` paths, which are preserved
+   as-is. (`--conflict=reject` instead leaves `.rej` patch fragments
+   alongside the file; if you use it, apply each fragment by hand.)
+   Resolve every marker before committing; the `check-merge-conflict`
+   hook is a backstop, not the plan.
 3. **Keep the template-owned core.** After reconciling per Principle 1,
    the consumer should converge on: root `rust-toolchain.toml` (channel
    equals `rust-version`), root `rustfmt.toml`, `linecheck` hook and
@@ -26,11 +28,12 @@ already-consumed repository with `copier update`.
    side), CI workflows (or a conscious strip decision), and the recorded
    answers file.
 4. **Never hand-edit the answers file.** It is overwritten by Copier. Drive
-   answers with `--data-file` plus `--skip-answered`, and copy from the
-   remote template source (`gh:emcd/rust-project-common`), tracking latest
-   unless a pinned `--vcs-ref` was explicitly requested. Caveat: the public
-   mirror can lag the template's production tree — for a known fix, copy
-   with `--vcs-ref` until the mirror confirms the tag.
+   answers with `--data-file` on copy, plus `--skip-answered` on update,
+   and copy from the remote template source (`gh:emcd/rust-project-common`),
+   tracking latest unless a pinned `--vcs-ref` was explicitly requested.
+   Caveat: the public mirror can lag the template's production tree — if
+   the fix you need is not yet on the mirror, copy from a reachable source
+   instead; `--vcs-ref` can only select refs the source already has.
 5. **Populate agents after updating, before validating.** Run
    `agentsmgr populate` after the copy/update and conflict resolution so
    template-owned agent files refresh — then run hooks and tests against
@@ -38,12 +41,12 @@ already-consumed repository with `copier update`.
    that is about to change.
 6. **Install hooks; do not assume them.** Fresh clones ship sample-only
    `.git/hooks`, and every `fail_fast` gate silently no-ops until hooks
-   are installed. Install in this order: `git lfs install`, then
-   `pre-commit install --config .auxiliary/configuration/pre-commit.yaml`
-   (pre-commit preserves an existing pre-push hook as `pre-push.legacy`
-   and chains it). `pre-commit --version` passing is not evidence hooks
-   are live — check `.git/hooks` for non-sample entries.
-6. **MSRV is a decision, not a default.** `rust-version` sets both the
+   are installed. Run `pre-commit install --config
+   .auxiliary/configuration/pre-commit.yaml` (pre-commit preserves an
+   existing pre-push hook as `pre-push.legacy` and chains it).
+   `pre-commit --version` passing is not evidence hooks are live — check
+   `.git/hooks` for non-sample entries.
+7. **MSRV is a decision, not a default.** `rust-version` sets both the
    manifest floor and the toolchain pin. Confirm the intended floor with
    the project owner instead of accepting the default blindly. Pinning an
    exact patch version to dodge environment issues is a workaround, not a
@@ -63,7 +66,7 @@ already-consumed repository with `copier update`.
 ## Update Checklist
 
 - Clean tree. Note the template ref being updated from and to.
-- Run `copier update`; resolve all markers and `.rej` files.
+- Run `copier update`; resolve all conflict markers.
 - Re-run `pre-commit install --config .auxiliary/configuration/pre-commit.yaml` so any new hook types land — updates never reinstall hooks.
 - Run `agentsmgr populate`.
 - Re-verify hooks and tests; commit.
