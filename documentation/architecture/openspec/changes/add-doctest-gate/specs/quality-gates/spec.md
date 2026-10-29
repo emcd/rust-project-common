@@ -27,3 +27,8 @@ The lint job MUST invoke the rendered pre-commit configuration with an explicit 
 
 - **WHEN** a pull request runs the lint job
 - **THEN** the job runs the pre-commit stage of `.auxiliary/configuration/pre-commit.yaml` with an explicit `--config` argument and does not run pre-push hooks
+
+#### Scenario: Rendered workflows pass the template's own gates
+
+- **WHEN** a consumer renders the template
+- **THEN** every rendered file already satisfies the hygiene hooks with no fixer rewrites
