@@ -18,16 +18,28 @@ already-consumed repository with `copier update`.
    `check-merge-conflict` hook is a backstop, not the plan.
 3. **Keep the template-owned core.** After reconciling, the consumer should
    converge on: root `rust-toolchain.toml` (channel equals `rust-version`),
-   root `rustfmt.toml`, `linecheck` hook and config, the pre-commit stage
-   hooks, CI workflows (or a conscious strip decision), and the recorded
-   answers file.
+   root `rustfmt.toml`, `linecheck` hook and config, template-owned hook
+   definitions merged with project-owned custom hooks (resolve conflicts
+   keeping both sides — never strip one side), CI workflows (or a conscious
+   strip decision), and the recorded answers file.
 4. **Never hand-edit the answers file.** It is overwritten by Copier. Drive
    answers with `--data-file` plus `--skip-answered`, and copy from the
    remote template source (`gh:emcd/rust-project-common`), tracking latest
-   unless a pinned `--vcs-ref` was explicitly requested.
-5. **Populate agents after updating, before committing.** Run
+   unless a pinned `--vcs-ref` was explicitly requested. Caveat: the public
+   mirror can lag the template's production tree — for a known fix, copy
+   with `--vcs-ref` until the mirror confirms the tag.
+5. **Populate agents after updating, before validating.** Run
    `agentsmgr populate` after the copy/update and conflict resolution so
-   template-owned agent files refresh, then run hooks and tests.
+   template-owned agent files refresh — then run hooks and tests against
+   the final tree, then commit. Validating before populating tests a tree
+   that is about to change.
+6. **Install hooks; do not assume them.** Fresh clones ship sample-only
+   `.git/hooks`, and every `fail_fast` gate silently no-ops until hooks
+   are installed. Install in this order: `git lfs install`, then
+   `pre-commit install --config .auxiliary/configuration/pre-commit.yaml`
+   (pre-commit preserves an existing pre-push hook as `pre-push.legacy`
+   and chains it). `pre-commit --version` passing is not evidence hooks
+   are live — check `.git/hooks` for non-sample entries.
 6. **MSRV is a decision, not a default.** `rust-version` sets both the
    manifest floor and the toolchain pin. Confirm the intended floor with
    the project owner instead of accepting the default blindly. Pinning an
@@ -40,12 +52,20 @@ already-consumed repository with `copier update`.
 - Saved answers file; remote template source.
 - Run the copy; review the full diff file by file.
 - Restore project-owned files; keep template-owned additions.
-- Run `cargo fmt --check`, clippy, the test suite, linecheck, and the
-  relevant CI workflows.
+- Install hooks (see Principle 6).
+- Run `agentsmgr populate`, then `cargo fmt --check`, clippy, the test
+  suite, linecheck, and the relevant CI workflows.
 - Commit with the template ref recorded in the message.
 
 ## Update Checklist
 
 - Clean tree. Note the template ref being updated from and to.
 - Run `copier update`; resolve all markers and `.rej` files.
-- Re-verify hooks and tests; `agentsmgr populate`; commit.
+- Run `agentsmgr populate`.
+- Re-verify hooks and tests; commit.
+
+Populate may replace tracked coder-skills directories with symlinks into
+the canonical skills tree and delete custom skills from coder dirs. That is
+a layout migration, not data loss — do NOT `git checkout` the old paths;
+writes go through the symlink into the canonical tree. Sync to current
+master first; restore via a fresh symlink or re-populate.
