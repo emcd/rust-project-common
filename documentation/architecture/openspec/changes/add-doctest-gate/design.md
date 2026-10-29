@@ -16,7 +16,7 @@ Nextest documents doctest support as out of scope; the template standardizes on 
 
 ### 1. Scope to --doc, both fast stages
 
-`cargo test --doc --locked` covers exactly the hole: unit and integration tests stay with nextest. Pre-commit and pre-merge-commit mirror the nextest hook's stages so merges get the same coverage as ordinary commits.
+`cargo test --doc --locked` covers exactly the hole: unit and integration tests stay with nextest. Pre-commit and pre-merge-commit mirror the nextest hook's stages so merges get the same coverage as ordinary commits. The hook entry carries the same lockfile bootstrap as the nextest hook, and the hook renders only when the crate shape includes library (there are no doctests without a lib target).
 
 ## Risks / Trade-offs
 
