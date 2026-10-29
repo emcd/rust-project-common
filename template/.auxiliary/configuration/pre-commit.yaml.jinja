@@ -75,7 +75,7 @@ repos:
     require_serial: true
     stages: [ 'pre-commit', 'pre-merge-commit' ]
     fail_fast: true
-{% if enable_fuzzing %}
+{%- if enable_fuzzing %}
   - id: cargo-fuzz
     name: 'Fuzz (cargo-fuzz, bounded)'
     # Requires a nightly toolchain (`rustup toolchain install nightly`):
@@ -88,8 +88,8 @@ repos:
     require_serial: true
     stages: [ 'pre-push' ]
     fail_fast: true
-{% endif %}
-{% if enable_benchmarking %}
+{%- endif %}
+{%- if enable_benchmarking %}
   - id: cargo-bench
     name: 'Benchmark (Criterion)'
     language: system
@@ -98,4 +98,4 @@ repos:
     require_serial: true
     stages: [ 'pre-push' ]
     fail_fast: true
-{% endif %}
+{%- endif %}
