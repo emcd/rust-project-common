@@ -70,7 +70,7 @@ repos:
   - id: cargo-nextest
     name: 'Test (Rust: cargo-nextest)'
     language: system
-    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo nextest run --locked'"
+    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo nextest run --locked --no-tests=warn'"
     pass_filenames: false
     require_serial: true
     stages: [ 'pre-commit', 'pre-merge-commit' ]

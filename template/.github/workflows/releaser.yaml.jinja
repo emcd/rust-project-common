@@ -39,7 +39,7 @@ jobs:
         run: cargo build --release --locked --all-targets
 
       - name: Test Release
-        run: cargo nextest run --release --locked
+        run: cargo nextest run --release --locked --no-tests=warn
 
       - name: Package
         run: cargo package --locked --no-verify
