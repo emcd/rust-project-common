@@ -24,9 +24,14 @@
 
 The releaser's direct `cargo nextest run` hits the same wall on test-less crates at release time.
 
+### 3. Show the warning, don't just emit it
+
+pre-commit suppresses successful hook output, which would hide the very warning `--no-tests=warn` produces. The hook carries `verbose: true` so the warning is visible in ordinary (non-verbose) runs.
+
 ## Risks / Trade-offs
 
-- None material: strictly loosens a false failure; real failures still fail.
+- An empty suite is accepted, whether it is a fresh scaffold or accidental broken discovery. The visible warning is observability, not an enforced minimum-test guarantee: it keeps the nudge to write tests without inventing a test-count policy.
+- Real failures still fail: only the zero-test exit path changes.
 
 ## Migration Plan
 
