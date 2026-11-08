@@ -12,7 +12,7 @@ jobs:
   initialize:
     uses: ./.github/workflows/core--initializer.yaml
 
-  lint:
+  gates:
     needs: [initialize]
     strategy:
       fail-fast: true

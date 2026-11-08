@@ -28,7 +28,7 @@ args = [
 
 # Every lockfile bootstrap step must pin `shell: bash`: Windows runners
 # default to pwsh, which cannot run the POSIX predicate. Tester always has
-# two bootstraps (lint, build); releaser has one (release-gates) plus the
+# two bootstraps (gates, build); releaser has one (release-gates) plus the
 # publish bootstrap only when publication is enabled.
 [[commands]]
 args = [
