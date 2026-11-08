@@ -30,11 +30,11 @@ The template MUST render `.auxiliary/configuration/pre-commit.yaml` for the pre-
 - **THEN** the nextest gate warns about zero tests and passes instead of failing
 
 ### Requirement: CI runs the same config for one stage
-The lint job MUST invoke the rendered pre-commit configuration with an explicit `--config` path and MUST run only the pre-commit stage. It MUST NOT run pre-merge, pre-push, or live hooks. The workflow MUST pin pre-commit, linecheck, and nextest, and MUST install project hook dependencies before the gate. The suite runner in that shared config MUST be nextest; a doctest-only runner MAY accompany it. That stage is the mandatory gate on every selected OS by CPU pair, except a hook scoped out as genuinely inapplicable.
+The gates job MUST invoke the rendered pre-commit configuration with an explicit `--config` path and MUST run only the pre-commit stage. It MUST NOT run pre-merge, pre-push, or live hooks. The workflow MUST pin pre-commit, linecheck, and nextest, and MUST install project hook dependencies before the gate. The suite runner in that shared config MUST be nextest; a doctest-only runner MAY accompany it. That stage is the mandatory gate on every selected OS by CPU pair, except a hook scoped out as genuinely inapplicable.
 
-#### Scenario: Lint job on pull request
+#### Scenario: Gates job on pull request
 
-- **WHEN** a pull request runs the lint job
+- **WHEN** a pull request runs the gates job
 - **THEN** the job runs the pre-commit stage of `.auxiliary/configuration/pre-commit.yaml` with an explicit `--config` argument and does not run pre-push hooks
 
 #### Scenario: Rendered workflows pass the template's own gates
