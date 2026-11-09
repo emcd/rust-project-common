@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Root CHANGELOG starter is rendered
 
