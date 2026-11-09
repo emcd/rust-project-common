@@ -12,6 +12,7 @@ _message_after_update: |
 
 _skip_if_exists:
   - .auxiliary/configuration/linecheck.yaml
+  - CHANGELOG.md
   - src/bin/{{ crate_name }}.rs
   - src/lib.rs
 
