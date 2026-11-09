@@ -29,11 +29,25 @@ args = [
 # Every lockfile bootstrap step must pin `shell: bash`: Windows runners
 # default to pwsh, which cannot run the POSIX predicate. Tester always has
 # two bootstraps (gates, build); releaser has one (release-gates) plus the
-# publish bootstrap only when publication is enabled.
+# publish bootstrap only when publication is enabled, plus a third when the
+# binary pipeline renders (build-binaries). The binary-naming step also pins
+# bash for its `[[ ]]` predicate, so releaser `shell: bash` runs one ahead
+# of the bootstrap count whenever build-binaries renders.
 [[commands]]
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / '.github' / 'workflows'; t = (d / 'tester.yaml').read_text(); r = (d / 'releaser.yaml').read_text(); tn, th = t.count('Generate Lockfile If Missing'), t.count('shell: bash'); rn, rh = r.count('Generate Lockfile If Missing'), r.count('shell: bash'); assert (tn, th) == (2, 2), (tn, th); assert (rn, rh) in ((1, 1), (2, 2)), (rn, rh); print('bootstrap shells OK: tester=2 releaser=%d' % rn)",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / '.github' / 'workflows'; t = (d / 'tester.yaml').read_text(); r = (d / 'releaser.yaml').read_text(); tn, th = t.count('Generate Lockfile If Missing'), t.count('shell: bash'); rn, rh = r.count('Generate Lockfile If Missing'), r.count('shell: bash'); assert (tn, th) == (2, 2), (tn, th); assert (rn, rh) in ((1, 1), (2, 2), (3, 4)), (rn, rh); print('bootstrap shells OK: tester=2 releaser=%d' % rn)",
+  "{project_directory}",
+]
+
+# When the binary pipeline renders, the attestation bundle must be staged
+# under a deterministic name inside artifacts/ so the release upload glob
+# attaches it to the release (vacuous when publish-github does not render).
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import pathlib,sys; r = (pathlib.Path(sys.argv[1]) / '.github' / 'workflows' / 'releaser.yaml').read_text(); assert ('publish-github' in r) == ('build-binaries' in r), 'binary pipeline halves'; assert ('publish-github' not in r) or ('steps.attest.outputs.bundle-path' in r and '-provenance.sigstore.json' in r and 'artifacts/*' in r and '-- \"${RELEASE_TAG}\"' in r and 'artifacts/*' in r.split('Upload Release Artifacts')[1]), 'bundle staging'; print('release bundle OK' if 'publish-github' in r else 'no binary pipeline OK')",
   "{project_directory}",
 ]

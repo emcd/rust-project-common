@@ -7,7 +7,7 @@ Publication, fuzzing, benchmarking, property testing, and deny policy.
 ## Requirements
 
 ### Requirement: Publication is optional and tokenless only after registration
-Publication MUST default off. The release pipeline MUST trigger on tags matching `v[0-9]+.*`, including pre-1.0 releases, and MUST offer a `dry-run` manual dispatch input defaulting to true that runs the release gates without publishing. Each selected cell MUST run its applicable release build, test, and package gates. The release test gate MUST tolerate a suite with zero tests by warning rather than failing. Exactly one non-matrix publish job MUST publish after the entire matrix succeeds; that job MUST be named `publish-crates-io`, MUST declare the `crates-io` environment, and MUST be rendered only when publication is enabled. The publish job MUST run only on tag refs with dry-run disabled. Publishing MUST use OpenID Connect trusted publishing and MUST NOT store a long-lived crates.io token. The template MUST document trusted-publisher registration as an operator prerequisite. It MUST NOT promise that the first publication of a new crate succeeds without a registry onboarding step. Release attestation MUST NOT be part of this template.
+Publication MUST default off. The release pipeline MUST trigger on tags matching `v[0-9]+.*`, including pre-1.0 releases, and MUST offer a `dry-run` manual dispatch input defaulting to true that runs the release gates without publishing. Each selected cell MUST run its applicable release build, test, and package gates. The release test gate MUST tolerate a suite with zero tests by warning rather than failing. Exactly one non-matrix publish job MUST publish after the entire matrix succeeds; that job MUST be named `publish-crates-io`, MUST declare the `crates-io` environment, and MUST be rendered only when publication is enabled. The publish job MUST run only on tag refs with dry-run disabled. When the crate shape includes `executable` and publication is enabled, each selected cell MUST additionally build the release binary, name it deterministically, and upload it as an artifact; and exactly one non-matrix `publish-github` job MUST download all binaries, checksum them, attest their provenance, attach the binaries, the checksums, and the attestation bundle to the tag's GitHub release. On repository plans without attestation support, the binary release gate MUST fail visibly at the attest step rather than skip provenance. Publishing MUST use OpenID Connect trusted publishing and MUST NOT store a long-lived crates.io token. The template MUST document trusted-publisher registration as an operator prerequisite. It MUST NOT promise that the first publication of a new crate succeeds without a registry onboarding step. Release attestation MUST be part of the GitHub release for binary crates.
 
 #### Scenario: Publication left off
 
@@ -38,6 +38,21 @@ Publication MUST default off. The release pipeline MUST trigger on tags matching
 
 - **WHEN** a consumer pushes a `v0.x` tag
 - **THEN** the release pipeline runs, and publishes when publication is enabled
+
+#### Scenario: Binary crate publishes to GitHub releases
+
+- **WHEN** a consumer with the executable shape and publication enabled pushes a release tag
+- **THEN** every selected cell uploads its release binary and the publish-github job attaches all binaries, checksums, and provenance attestation to the tag's GitHub release
+
+#### Scenario: Repository plan without attestation support
+
+- **WHEN** a binary release runs on a repository plan without attestation support
+- **THEN** the publish-github job fails visibly at the attest step and creates no release; attestation is never silently skipped
+
+#### Scenario: Library-only crate has no GitHub release job
+
+- **WHEN** a consumer with only the library shape enables publication
+- **THEN** the rendered releaser contains no binary-build and no publish-github jobs
 
 ### Requirement: Fuzzing, property testing, and benchmarking are separate opt-ins
 
