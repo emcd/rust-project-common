@@ -86,6 +86,36 @@ repos:
     stages: [ 'pre-commit', 'pre-merge-commit' ]
     fail_fast: true
 {%- endif %}
+  - id: cargo-build-release
+    name: 'Build (Rust: release)'
+    language: system
+    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo build --release --locked --all-targets'"
+    pass_filenames: false
+    always_run: true
+    require_serial: true
+    stages: [ 'pre-push' ]
+    fail_fast: true
+  - id: cargo-nextest-release
+    name: 'Test (Rust: cargo-nextest, release)'
+    language: system
+    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo nextest run --release --locked --no-tests=warn'"
+    pass_filenames: false
+    always_run: true
+    require_serial: true
+    stages: [ 'pre-push' ]
+    fail_fast: true
+    verbose: true
+{%- if 'library' in crate_shape %}
+  - id: cargo-doctest-release
+    name: 'Test (Rust: doctests, release)'
+    language: system
+    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo test --doc --release --locked'"
+    pass_filenames: false
+    always_run: true
+    require_serial: true
+    stages: [ 'pre-push' ]
+    fail_fast: true
+{%- endif %}
 {%- if enable_fuzzing %}
   - id: cargo-fuzz
     name: 'Fuzz (cargo-fuzz, bounded)'

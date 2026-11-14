@@ -51,6 +51,11 @@ jobs:
         env:
           RUST_BACKTRACE: '1'
         run: cargo nextest run --release --locked --no-tests=warn
+{%- if 'library' in crate_shape %}
+
+      - name: Test Release Doctests
+        run: cargo test --doc --release --locked
+{%- endif %}
 
       - name: Package
         run: cargo package --locked --no-verify

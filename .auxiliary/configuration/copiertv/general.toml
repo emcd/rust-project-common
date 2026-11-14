@@ -66,3 +66,14 @@ args = [
   "import pathlib,sys; d = pathlib.Path(sys.argv[1]); w = d / '.github' / 'workflows'; names = sorted(p.name for p in w.glob('*.yaml')); assert 'common-initializer.yaml' in names, names; assert not [n for n in names if '--' in n], names; t = (w / 'tester.yaml').read_text(); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); is_max = ('- id: cargo-fuzz' in h); has_custom = '  custom:' in t; assert has_custom == is_max, (has_custom, is_max); blk = t.split('  custom:')[1] if has_custom else ''; assert (('    uses: ./.github/workflows/local--tester.yaml' in blk) and ('contents: read' in blk) and ('if:' not in blk) and ('steps:' not in blk)) if has_custom else True; print('workflow inventory OK: custom=%s' % has_custom)",
   "{project_directory}",
 ]
+
+# Hook-to-CI parity for the release profile: the pre-push hook entries must
+# carry the exact CI release-gates commands (doctest twin only renders for
+# library shapes, matching the conditional CI step).
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); r = (d / '.github' / 'workflows' / 'releaser.yaml').read_text(); cmds = ['cargo build --release --locked --all-targets', 'cargo nextest run --release --locked --no-tests=warn']; assert all(c in h and c in r for c in cmds), cmds; lib = 'cargo test --doc --release --locked'; has_lib = '[lib]' in (d / 'Cargo.toml').read_text(); assert (lib in h) == has_lib and (lib in r) == has_lib, has_lib; print('release parity OK: doctest=%s' % has_lib)",
+  "{project_directory}",
+]
