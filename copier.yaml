@@ -116,6 +116,11 @@ cpu_architectures:
         Must specify at least one CPU architecture
         {% endif %}
 
+enable_custom_ci:
+    type: bool
+    help: 'Render a final custom gate job calling consumer-owned local--tester.yaml?'
+    default: false
+
 enable_publication:
     type: bool
     help: 'Publish to crates.io with OIDC trusted publishing?'

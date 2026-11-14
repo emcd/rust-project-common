@@ -17,6 +17,7 @@ operating_systems:
 cpu_architectures:
   - x86_64
   - arm64
+enable_custom_ci: false
 enable_publication: false
 enable_fuzzing: false
 enable_benchmarking: false

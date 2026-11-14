@@ -28,7 +28,13 @@ already-consumed repository with `copier update`.
    config, template-owned hook definitions merged with project-owned
    custom hooks (resolve conflicts keeping both sides — never strip one
    side), CI workflows (or a conscious strip decision), and the recorded
-   answers file.
+   answers file. Project-specific CI gates that must survive updates do not
+   belong inside the rendered workflows: answer `enable_custom_ci` and put
+   them in a consumer-authored `./.github/workflows/local--tester.yaml`
+   reusable workflow, which the rendered `custom` job calls as an independent
+   gate. The template never renders that file, so updates cannot conflict
+   with it; enabling the answer without providing the file fails the run
+   visibly instead of skipping.
 4. **Never hand-edit the answers file.** It is overwritten by Copier. Drive
    answers with `--data-file` on copy, plus `--skip-answered` on update,
    and copy from the remote template source (`gh:emcd/rust-project-common`),

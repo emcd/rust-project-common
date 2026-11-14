@@ -10,7 +10,7 @@ on:
 jobs:
 
   initialize:
-    uses: ./.github/workflows/core--initializer.yaml
+    uses: ./.github/workflows/common-initializer.yaml
 
   gates:
     needs: [initialize]
@@ -73,3 +73,15 @@ jobs:
 
       - name: Build
         run: cargo build --locked --all-targets
+{%- if enable_custom_ci %}
+
+  # Consumer-owned gates live in ./.github/workflows/local--tester.yaml
+  # (authored by the consumer, never rendered by the template). This job
+  # calls it as an independent gate alongside the template gates. Job-level
+  # uses: reusable workflows cannot be invoked from a step.
+  custom:
+    needs: [initialize]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/local--tester.yaml
+{%- endif %}
