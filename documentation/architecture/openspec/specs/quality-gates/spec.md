@@ -7,7 +7,7 @@ Pre-commit hooks, CI parity, platform matrix, and line budgets.
 ## Requirements
 
 ### Requirement: Hooks use the pre-commit framework
-The template MUST render `.auxiliary/configuration/pre-commit.yaml` for the pre-commit framework. It MUST NOT install hooks by copying shell scripts into `.git/hooks`. The pre-commit stage MUST consist of clippy with `-D warnings` on all targets, rustfmt `--check`, linecheck, nextest with zero tests tolerated as a warning, and, when the crate shape includes library, a doctest gate running `bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo test --doc --locked'`, and the standard file-hygiene hooks: large-file, filename-case-conflict, merge-conflict-marker, symlink, VCS-permalink, destroyed-symlink, private-key, mixed-line-ending, JSON, TOML, and YAML checks, plus end-of-file and trailing-whitespace fixers. The doctest gate MUST be rendered only when the crate shape includes library. The same fast gates MUST also run at the `pre-merge-commit` stage, so merge commits cannot bypass them. When fuzzing is enabled, a bounded `cargo fuzz` run MUST be a pre-push hook. When benchmarking is enabled, a `cargo bench` run MUST be a pre-push hook. The mandatory merge-time gates are exactly the fast gates listed for the pre-commit stage; hygiene hooks run at merge per their upstream stage pins, which the template does not override. Merge-stage gates behave exactly as on ordinary commits, including lockfile bootstrap; if a hook modifies tracked files, pre-commit fails the merge visibly rather than completing it silently.
+The template MUST render `.auxiliary/configuration/pre-commit.yaml` for the pre-commit framework. It MUST NOT install hooks by copying shell scripts into `.git/hooks`. The pre-commit stage MUST consist of clippy with `-D warnings` on all targets, rustfmt `--check`, linecheck, nextest with zero tests tolerated as a warning, and, when the crate shape includes library, a doctest gate running `bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo test --doc --locked'`, and the standard file-hygiene hooks: large-file, filename-case-conflict, merge-conflict-marker, symlink, VCS-permalink, destroyed-symlink, private-key, mixed-line-ending, JSON, TOML, and YAML checks, plus end-of-file and trailing-whitespace fixers. The doctest gate MUST be rendered only when the crate shape includes library. The same fast gates MUST also run at the `pre-merge-commit` stage, so merge commits cannot bypass them. The pre-push stage MUST consist of release build (`cargo build --release --locked --all-targets`), release nextest with zero tests tolerated as a warning (`cargo nextest run --release --locked --no-tests=warn`), and, when the crate shape includes library, a release doctest gate (`cargo test --doc --release --locked`), each with the lockfile bootstrap. When fuzzing is enabled, a bounded `cargo fuzz` run MUST be a pre-push hook. When benchmarking is enabled, a `cargo bench` run MUST be a pre-push hook. The mandatory merge-time gates are exactly the fast gates listed for the pre-commit stage; hygiene hooks run at merge per their upstream stage pins, which the template does not override. Merge-stage gates behave exactly as on ordinary commits, including lockfile bootstrap; if a hook modifies tracked files, pre-commit fails the merge visibly rather than completing it silently.
 
 #### Scenario: Hooks are installed
 
@@ -18,6 +18,11 @@ The template MUST render `.auxiliary/configuration/pre-commit.yaml` for the pre-
 
 - **WHEN** a consumer creates a merge commit with hooks installed
 - **THEN** the clippy, fmt, linecheck, nextest, and (for library crates) doctest hooks run at `pre-merge-commit` and a violation blocks the merge
+
+#### Scenario: Push runs release gates
+
+- **WHEN** a consumer pushes with hooks installed
+- **THEN** the release build, release nextest, and (for library crates) release doctest hooks run at `pre-push` and a violation blocks the push
 
 #### Scenario: Doctests execute
 
@@ -30,7 +35,7 @@ The template MUST render `.auxiliary/configuration/pre-commit.yaml` for the pre-
 - **THEN** the nextest gate warns about zero tests and passes instead of failing
 
 ### Requirement: CI runs the same config for one stage
-The gates job MUST invoke the rendered pre-commit configuration with an explicit `--config` path and MUST run only the pre-commit stage. It MUST NOT run pre-merge, pre-push, or live hooks. The workflow MUST pin pre-commit, linecheck, and nextest, and MUST install project hook dependencies before the gate. The suite runner in that shared config MUST be nextest; a doctest-only runner MAY accompany it. That stage is the mandatory gate on every selected OS by CPU pair, except a hook scoped out as genuinely inapplicable.
+The gates job MUST invoke the rendered pre-commit configuration with an explicit `--config` path and MUST run only the pre-commit stage. It MUST NOT run pre-merge, pre-push, or live hooks. The workflow MUST pin pre-commit, linecheck, and nextest, and MUST install project hook dependencies before the gate. The suite runner in that shared config MUST be nextest; a doctest-only runner MAY accompany it. That stage is the mandatory gate on every selected OS by CPU pair, except a hook scoped out as genuinely inapplicable. When the consumer enables custom CI, the tester MUST render exactly one additional `custom` job that calls the consumer-authored `./.github/workflows/local--tester.yaml` reusable workflow at job level with explicit `contents: read` permissions and no secrets, and the tester MUST render nothing else for it. The custom job MUST be omitted byte-entirely when custom CI is disabled, MUST NOT be hidden behind a runtime condition, and MUST NOT be part of the mandatory same-config gate.
 
 #### Scenario: Gates job on pull request
 
@@ -41,6 +46,21 @@ The gates job MUST invoke the rendered pre-commit configuration with an explicit
 
 - **WHEN** a consumer renders the template
 - **THEN** every rendered file already satisfies the hygiene hooks with no fixer rewrites
+
+#### Scenario: Custom CI disabled
+
+- **WHEN** a consumer renders the template with custom CI off
+- **THEN** the tester contains no custom job and no reference to any local workflow file
+
+#### Scenario: Custom CI enabled
+
+- **WHEN** a consumer enables custom CI and provides `local--tester.yaml`
+- **THEN** the tester runs the consumer workflow as an independent gate alongside the template gates
+
+#### Scenario: Custom CI enabled without the file
+
+- **WHEN** a consumer enables custom CI but does not provide `local--tester.yaml`
+- **THEN** the tester run fails at workflow resolution rather than skipping
 
 ### Requirement: Selected OS and CPU pairs are real jobs
 
