@@ -23,4 +23,4 @@ None.
 - `template/.auxiliary/.gitignore` (new static file).
 - `.auxiliary/.gitignore` (this repo's own hygiene; same two lines).
 - `openspec/specs/template-layout/spec.md` (rendered-tree requirement).
-- Consumers: scratch dirs stop showing as untracked on next update; no conflicts possible (new file, previously unmanaged path).
+- Consumers: scratch dirs stop showing as untracked on next update. A pre-existing consumer-authored file merges as an ADD/ADD conflict with markers retaining both sides; concurrent appended rules can conflict the same way. Reconcile visibly, keeping both sides — no overwrite or loss, but clean merges are not guaranteed.
