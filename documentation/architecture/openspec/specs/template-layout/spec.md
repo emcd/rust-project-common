@@ -94,3 +94,11 @@ The template MUST render a root `CHANGELOG.md` in every project with the Keep-a-
 
 - **WHEN** a consumer writes release entries and then runs `copier update`
 - **THEN** the consumer's `CHANGELOG.md` is preserved byte-identical
+
+### Requirement: Auxiliary gitignore is rendered
+The template MUST render a root-relative `.auxiliary/.gitignore` in every project ignoring `/scribbles/` and `/temporary/`, with a comment pointing at the agent instructions for the current conventions.
+
+#### Scenario: Project is rendered
+
+- **WHEN** a consumer generates a project
+- **THEN** `.auxiliary/.gitignore` exists and ignores the scratch directories
