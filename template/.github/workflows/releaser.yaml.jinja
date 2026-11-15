@@ -50,7 +50,7 @@ jobs:
       - name: Test Release
         env:
           RUST_BACKTRACE: '1'
-        run: cargo nextest run --release --locked --no-tests=warn
+        run: cargo nextest run --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml
 {%- if 'library' in crate_shape %}
 
       - name: Test Release Doctests

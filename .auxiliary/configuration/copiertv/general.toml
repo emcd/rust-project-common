@@ -77,3 +77,14 @@ args = [
   "import pathlib,sys; d = pathlib.Path(sys.argv[1]); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); r = (d / '.github' / 'workflows' / 'releaser.yaml').read_text(); cmds = ['cargo build --release --locked --all-targets', 'cargo nextest run --release --locked --no-tests=warn']; assert all(c in h and c in r for c in cmds), cmds; lib = 'cargo test --doc --release --locked'; has_lib = '[lib]' in (d / 'Cargo.toml').read_text(); assert (lib in h) == has_lib and (lib in r) == has_lib, has_lib; print('release parity OK: doctest=%s' % has_lib)",
   "{project_directory}",
 ]
+
+# Every nextest invocation must name the canonical config file, which the
+# template renders (skip-if-exists) at the same path. Doctest gates use
+# cargo test and are exempt.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import pathlib,sys,tomllib; d = pathlib.Path(sys.argv[1]); p = d / '.auxiliary/configuration/nextest.toml'; assert p.exists(), 'config missing'; tomllib.load(open(p, 'rb')); h = (d / '.auxiliary/configuration/pre-commit.yaml').read_text(); r = (d / '.github/workflows/releaser.yaml').read_text(); f = '--config-file ' + '.auxiliary/configuration/nextest.toml'; assert h.count(f) == 2, h.count(f); assert r.count(f) == 1, r.count(f); print('nextest config OK')",
+  "{project_directory}",
+]
