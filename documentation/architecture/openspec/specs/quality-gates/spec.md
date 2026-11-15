@@ -7,7 +7,7 @@ Pre-commit hooks, CI parity, platform matrix, and line budgets.
 ## Requirements
 
 ### Requirement: Hooks use the pre-commit framework
-The template MUST render `.auxiliary/configuration/pre-commit.yaml` for the pre-commit framework. It MUST NOT install hooks by copying shell scripts into `.git/hooks`. The pre-commit stage MUST consist of clippy with `-D warnings` on all targets, rustfmt `--check`, linecheck, nextest with zero tests tolerated as a warning, and, when the crate shape includes library, a doctest gate running `bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo test --doc --locked'`, and the standard file-hygiene hooks: large-file, filename-case-conflict, merge-conflict-marker, symlink, VCS-permalink, destroyed-symlink, private-key, mixed-line-ending, JSON, TOML, and YAML checks, plus end-of-file and trailing-whitespace fixers. The doctest gate MUST be rendered only when the crate shape includes library. The same fast gates MUST also run at the `pre-merge-commit` stage, so merge commits cannot bypass them. The pre-push stage MUST consist of release build (`cargo build --release --locked --all-targets`), release nextest with zero tests tolerated as a warning (`cargo nextest run --release --locked --no-tests=warn`), and, when the crate shape includes library, a release doctest gate (`cargo test --doc --release --locked`), each with the lockfile bootstrap. When fuzzing is enabled, a bounded `cargo fuzz` run MUST be a pre-push hook. When benchmarking is enabled, a `cargo bench` run MUST be a pre-push hook. The mandatory merge-time gates are exactly the fast gates listed for the pre-commit stage; hygiene hooks run at merge per their upstream stage pins, which the template does not override. Merge-stage gates behave exactly as on ordinary commits, including lockfile bootstrap; if a hook modifies tracked files, pre-commit fails the merge visibly rather than completing it silently.
+The template MUST render `.auxiliary/configuration/pre-commit.yaml` for the pre-commit framework. It MUST NOT install hooks by copying shell scripts into `.git/hooks`. The pre-commit stage MUST consist of clippy with `-D warnings` and no default features on all targets, rustfmt `--check`, linecheck, nextest with zero tests tolerated as a warning, an explicit `--config-file .auxiliary/configuration/nextest.toml`, and no default features, and, when the crate shape includes library, a doctest gate running `bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo test --doc --locked'`, and the standard file-hygiene hooks: large-file, filename-case-conflict, merge-conflict-marker, symlink, VCS-permalink, destroyed-symlink, private-key, mixed-line-ending, JSON, TOML, and YAML checks, plus end-of-file and trailing-whitespace fixers. The doctest gate MUST be rendered only when the crate shape includes library. The same fast gates MUST also run at the `pre-merge-commit` stage, so merge commits cannot bypass them. The pre-push stage MUST consist of release build with no default features (`cargo build --release --locked --all-targets --no-default-features`), release nextest with zero tests tolerated as a warning, an explicit `--config-file .auxiliary/configuration/nextest.toml`, and no default features (`cargo nextest run --no-default-features --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml`), and, when the crate shape includes library, a release doctest gate (`cargo test --doc --release --locked`), each with the lockfile bootstrap. When fuzzing is enabled, a bounded `cargo fuzz` run MUST be a pre-push hook. When benchmarking is enabled, a `cargo bench` run MUST be a pre-push hook. The mandatory merge-time gates are exactly the fast gates listed for the pre-commit stage; hygiene hooks run at merge per their upstream stage pins, which the template does not override. Merge-stage gates behave exactly as on ordinary commits, including lockfile bootstrap; if a hook modifies tracked files, pre-commit fails the merge visibly rather than completing it silently.
 
 #### Scenario: Hooks are installed
 
@@ -108,3 +108,16 @@ The template MUST always render the linecheck hook, config, and CI install. It M
 
 - **WHEN** a consumer changes the linecheck warn or error numbers and then runs `copier update`
 - **THEN** those numbers remain the consumer's values
+
+### Requirement: Nextest config is rendered
+The template MUST render a default `.auxiliary/configuration/nextest.toml` carrying no behavioral tuning, and MUST list it in `_skip_if_exists` so later copies and updates never overwrite consumer tuning. Every template nextest invocation MUST pass `--config-file` naming that path.
+
+#### Scenario: Project is rendered
+
+- **WHEN** a consumer generates a project
+- **THEN** the config file exists with no tuning, and every nextest entry names it
+
+#### Scenario: Consumer tunes nextest
+
+- **WHEN** a consumer edits the config and then runs `copier update`
+- **THEN** those edits remain the consumer's values
