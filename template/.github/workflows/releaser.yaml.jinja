@@ -45,12 +45,12 @@ jobs:
         shell: bash
 
       - name: Build Release
-        run: cargo build --release --locked --all-targets
+        run: cargo build --release --locked --all-targets --no-default-features
 
       - name: Test Release
         env:
           RUST_BACKTRACE: '1'
-        run: cargo nextest run --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml
+        run: cargo nextest run --no-default-features --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml
 {%- if 'library' in crate_shape %}
 
       - name: Test Release Doctests

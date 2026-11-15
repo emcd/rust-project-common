@@ -42,7 +42,7 @@ repos:
   - id: cargo-clippy
     name: 'Lint (Rust: Clippy)'
     language: system
-    entry: 'cargo clippy --all-targets -- -D warnings'
+    entry: 'cargo clippy --all-targets --no-default-features -- -D warnings'
     pass_filenames: false
     require_serial: true
     stages: [ 'pre-commit', 'pre-merge-commit' ]
@@ -70,7 +70,7 @@ repos:
   - id: cargo-nextest
     name: 'Test (Rust: cargo-nextest)'
     language: system
-    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo nextest run --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml'"
+    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo nextest run --no-default-features --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml'"
     pass_filenames: false
     require_serial: true
     stages: [ 'pre-commit', 'pre-merge-commit' ]
@@ -89,7 +89,7 @@ repos:
   - id: cargo-build-release
     name: 'Build (Rust: release)'
     language: system
-    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo build --release --locked --all-targets'"
+    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo build --release --locked --all-targets --no-default-features'"
     pass_filenames: false
     always_run: true
     require_serial: true
@@ -98,7 +98,7 @@ repos:
   - id: cargo-nextest-release
     name: 'Test (Rust: cargo-nextest, release)'
     language: system
-    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo nextest run --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml'"
+    entry: "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec cargo nextest run --no-default-features --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml'"
     pass_filenames: false
     always_run: true
     require_serial: true
