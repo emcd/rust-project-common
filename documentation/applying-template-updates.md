@@ -30,11 +30,17 @@ already-consumed repository with `copier update`.
    side), CI workflows (or a conscious strip decision), and the recorded
    answers file. Project-specific CI gates that must survive updates do not
    belong inside the rendered workflows: answer `enable_custom_ci` and put
-   them in a consumer-authored `./.github/workflows/local--tester.yaml`
-   reusable workflow, which the rendered `custom` job calls as an independent
-   gate. The template never renders that file, so updates cannot conflict
-   with it; enabling the answer without providing the file fails the run
-   visibly instead of skipping.
+   tester gates in a consumer-authored `./.github/workflows/local--tester.yaml`
+   and release gates in `./.github/workflows/local--releaser.yaml`, which the
+   rendered `custom` and `custom-release` jobs call as independent gates. Both
+   files declare exactly the `platforms` and `cargo-profile` inputs (no
+   `has-library`: the author knows their own crate shape); the template renders
+   failing-loudly protected stubs whenever they are absent, so an
+   unimplemented gate reads red, never green. Existing no-input custom files
+   and any consumer-owned readers of the old initializer `cells` output must
+   be migrated by hand at re-pin: add the declared inputs and rebind to
+   `needs.initialize.outputs.platforms`. Copier rewrites rendered callers
+   only, never consumer-owned readers.
 4. **Never hand-edit the answers file.** It is overwritten by Copier. Drive
    answers with `--data-file` on copy, plus `--skip-answered` on update,
    and copy from the remote template source (`gh:emcd/rust-project-common`),
@@ -67,6 +73,14 @@ already-consumed repository with `copier update`.
    the project owner instead of accepting the default blindly. Pinning an
    exact patch version to dodge environment issues is a workaround, not a
    fix — fix the environment instead.
+8. **Cross-repo workflows version independently of the template.** The
+   shared tester lives outside the template tree and is referenced by
+   floating major tag (`@gha-1`), which rendered callers pin by default;
+   every shared change cuts an immutable `@gha-X.Y` tag that advances the
+   float, and breaking changes start a new major series. The initial tag
+   ships before any consumer renders a caller; floating tags move only
+   after fixture-gated promotion, and only by the operator. Never retarget
+   a float by hand, and never move or delete an immutable tag.
 
 ## First Copy Checklist
 
