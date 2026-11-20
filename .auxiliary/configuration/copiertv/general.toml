@@ -149,11 +149,10 @@ print('workflow inventory OK: custom=%s' % a.get('enable_custom_ci'))
   "{variant}",
 ]
 
-# Exact hook-to-shared command mapping, both directions: every mapped hook
-# entry must equal its CI twin after stripping the single documented
-# lockfile-bootstrap wrapper, and every shared gate command must be either
-# mapped or explicitly allowlisted (no twins: installs, bootstrap, target
-# setup, dev-only builds). Either side drifting fails the check.
+# Exact hook-to-shared command mapping with job and predicate identity: every
+# mapped hook entry must equal its CI twin (single documented wrapper
+# stripped), and every shared gate step must match its (job, command, guard)
+# triple exactly. Either side drifting, or a flipped guard, fails the check.
 [[commands]]
 args = [
   "python3",
@@ -188,20 +187,34 @@ if lib:
     expected['cargo-doctest-release'] = 'cargo test --doc --release --locked'
 assert entries == expected, (entries, expected)
 x = yaml.safe_load((pathlib.Path.cwd().parent / '.github/workflows/xrepo--tester.yaml').read_text())
-runs = [s['run'] for job in ('lint', 'build', 'test') for s in x['jobs'][job]['steps'] if 'run' in s]
-allowed = {
-    'rustup target add "${TARGET_TRIPLE}"',
-    'test -f Cargo.lock || cargo generate-lockfile',
-    'cargo install linecheck --version 1.2.1 --locked',
-    'cargo install cargo-nextest --version 0.9.146 --locked',
-    'cargo build --locked --all-targets',
-    'cargo test --doc --locked',
-    'cargo test --doc --release --locked',
+expected_steps = {
+    'lint': [
+        ('rustup target add "${TARGET_TRIPLE}"', None),
+        ('cargo install linecheck --version 1.2.1 --locked', None),
+        ('test -f Cargo.lock || cargo generate-lockfile', None),
+        ('cargo clippy --all-targets --no-default-features -- -D warnings', None),
+        ('cargo fmt --all -- --check', None),
+        ('linecheck --config .auxiliary/configuration/linecheck.yaml src tests', None),
+    ],
+    'build': [
+        ('rustup target add "${TARGET_TRIPLE}"', None),
+        ('test -f Cargo.lock || cargo generate-lockfile', None),
+        ('cargo build --locked --all-targets', "${{ inputs.cargo-profile == 'dev' }}"),
+        ('cargo build --release --locked --all-targets --no-default-features', "${{ inputs.cargo-profile == 'release' }}"),
+    ],
+    'test': [
+        ('rustup target add "${TARGET_TRIPLE}"', None),
+        ('cargo install cargo-nextest --version 0.9.146 --locked', None),
+        ('test -f Cargo.lock || cargo generate-lockfile', None),
+        ('cargo nextest run --no-default-features --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml', "${{ inputs.cargo-profile == 'dev' }}"),
+        ('cargo nextest run --no-default-features --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml', "${{ inputs.cargo-profile == 'release' }}"),
+        ('cargo test --doc --locked', "${{ inputs.has-library && inputs.cargo-profile == 'dev' }}"),
+        ('cargo test --doc --release --locked', "${{ inputs.has-library && inputs.cargo-profile == 'release' }}"),
+    ],
 }
-for cmd in expected.values():
-    assert cmd in runs, cmd
-for cmd in runs:
-    assert cmd in set(expected.values()) | allowed, cmd
+for job, pairs in expected_steps.items():
+    actual = [(s['run'], s.get('if')) for s in x['jobs'][job]['steps'] if 'run' in s]
+    assert sorted(actual) == sorted(pairs), (job, actual)
 print('command mapping OK: doctest=%s' % lib)
 ''',
   "{project_directory}",
@@ -225,7 +238,7 @@ args = [
 args = [
   "python3",
   "-c",
-  "import json,pathlib,sys; d = pathlib.Path(sys.argv[1]); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; assert root.exists(), 'shared tester missing: checks run with cwd=template dir, whose parent must be the repo root'; line = next(l for l in root.read_text().splitlines() if l.strip().startswith('allowed_pairs=')); allowed = set(tuple(i.split(':', 1)) for i in line.split('=', 1)[1].strip().strip(chr(34)).split()); lines = (d / '.github' / 'workflows' / 'common-initializer.yaml').read_text().splitlines(); start = next(i for i, l in enumerate(lines) if l.rstrip().endswith(\"<<'EOF'\")) + 1; end = next(i for i, l in enumerate(lines) if l.strip() == 'EOF'); cells = [json.loads(l) for l in lines[start:end] if l.strip()]; assert cells, 'no cells'; rendered = set((c['runner'], c['target']) for c in cells); assert rendered <= allowed, rendered - allowed; print('mapping agreement OK: %d cells within allowlist' % len(cells))",
+  "import json,pathlib,sys; d = pathlib.Path(sys.argv[1]); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; assert root.exists(), 'shared tester missing: checks run with cwd=template dir, whose parent must be the repo root'; line = next(l for l in root.read_text().splitlines() if l.strip().startswith('allowed_platforms=')); allowed = set(tuple(i.split(':')) for i in line.split('=', 1)[1].strip().strip(chr(34)).split()); lines = (d / '.github' / 'workflows' / 'common-initializer.yaml').read_text().splitlines(); start = next(i for i, l in enumerate(lines) if l.rstrip().endswith(\"<<'EOF'\")) + 1; end = next(i for i, l in enumerate(lines) if l.strip() == 'EOF'); cells = [json.loads(l) for l in lines[start:end] if l.strip()]; assert cells, 'no cells'; rendered = set((c['os'], c['cpu'], c['runner'], c['target']) for c in cells); assert rendered <= allowed, rendered - allowed; print('mapping agreement OK: %d cells within allowlist' % len(cells))",
   "{project_directory}",
 ]
 
@@ -297,7 +310,7 @@ print('releaser wiring OK')
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); t = (d / '.github' / 'workflows' / 'tester.yaml').read_text(); r = (d / '.github' / 'workflows' / 'releaser.yaml').read_text(); n = (d / '.github' / 'workflows' / 'common-initializer.yaml').read_text(); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; x = root.read_text(); assert 'permissions: {}' in n; assert x.count('    permissions:') == 4; assert t.count('persist-credentials: false') == 1; exp = 1 + (1 if 'build-binaries:' in r else 0) + (2 if 'publish-crates-io:' in r else 0); assert r.count('persist-credentials: false') == exp, (exp, r.count('persist-credentials: false')); assert x.count('persist-credentials: false') == 3; assert 'pull_request_target' not in t; assert 'toJSON(needs)' in t; assert 'allowed_pairs=' in x and 'unsupported runner/target pair' in x and x.count('exit 1') >= 5; print('least privilege OK')",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); t = (d / '.github' / 'workflows' / 'tester.yaml').read_text(); r = (d / '.github' / 'workflows' / 'releaser.yaml').read_text(); n = (d / '.github' / 'workflows' / 'common-initializer.yaml').read_text(); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; x = root.read_text(); assert 'permissions: {}' in n; assert x.count('    permissions:') == 4; assert t.count('persist-credentials: false') == 1; exp = 1 + (1 if 'build-binaries:' in r else 0) + (2 if 'publish-crates-io:' in r else 0); assert r.count('persist-credentials: false') == exp, (exp, r.count('persist-credentials: false')); assert x.count('persist-credentials: false') == 3; assert 'pull_request_target' not in t; assert 'toJSON(needs)' in t; assert 'allowed_platforms=' in x and 'unsupported platform tuple' in x and x.count('exit 1') >= 5; print('least privilege OK')",
   "{project_directory}",
 ]
 
@@ -358,7 +371,7 @@ lines = (d / '.github/workflows/common-initializer.yaml').read_text().splitlines
 s0 = next(i for i, l in enumerate(lines) if l.rstrip().endswith("<<'EOF'")) + 1
 s1 = next(i for i, l in enumerate(lines) if l.strip() == 'EOF')
 stock = json.dumps([json.loads(l) for l in lines[s0:s1] if l.strip()], separators=(',', ':'))
-cases = [('dev', stock, True), ('release', stock, True), ('bogus', stock, False), ('dev', 'not json{{{', False), ('dev', '[]', False), ('dev', '["x"]', False), ('dev', json.dumps([{'os': 'linux', 'cpu': 'x86_64', 'runner': 'ubuntu-24.04'}]), False), ('dev', json.dumps([{'os': 'linux', 'cpu': 'x86_64', 'runner': 'ubuntu-24.04', 'target': 'aarch64-apple-darwin'}]), False), ('dev', json.dumps({'os': 'linux'}), False)]
+cases = [('dev', stock, True), ('release', stock, True), ('bogus', stock, False), ('dev', 'not json{{{', False), ('dev', '[]', False), ('dev', '["x"]', False), ('dev', json.dumps([{'os': 'linux', 'cpu': 'x86_64', 'runner': 'ubuntu-24.04'}]), False), ('dev', json.dumps([{'os': 'linux', 'cpu': 'x86_64', 'runner': 'ubuntu-24.04', 'target': 'aarch64-apple-darwin'}]), False), ('dev', json.dumps([{'os': 'macos', 'cpu': 'arm64', 'runner': 'ubuntu-24.04', 'target': 'x86_64-unknown-linux-gnu'}]), False), ('dev', json.dumps({'os': 'linux'}), False)]
 for profile, platforms, expect_ok in cases:
     with tempfile.NamedTemporaryFile('w', suffix='.sh', delete=False) as f:
         f.write(script)

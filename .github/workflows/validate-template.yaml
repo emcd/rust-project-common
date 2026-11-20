@@ -5,6 +5,7 @@ on:
     branches: ['*']
     paths:
       - '.auxiliary/configuration/copiertv/**'
+      - '.github/workflows/xrepo--tester.yaml'
       - 'copier.yaml'
       - 'data/copier/**'
       - 'template/**'
@@ -13,6 +14,7 @@ on:
       - master
     paths:
       - '.auxiliary/configuration/copiertv/**'
+      - '.github/workflows/xrepo--tester.yaml'
       - 'copier.yaml'
       - 'data/copier/**'
       - 'template/**'
@@ -41,5 +43,10 @@ jobs:
       - name: Install Copiertv
         run: pip install copiertv
 
+      - name: Confirm Validator Dependencies
+        run: |
+          jq --version
+          python -c "import copiertv, yaml"
+
       - name: Validate Variant
-        run: copiertv validate ${{ matrix.variant }}
+        run: copiertv --configfile .auxiliary/configuration/copiertv/general.toml validate ${{ matrix.variant }}

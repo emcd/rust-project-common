@@ -49,9 +49,10 @@ jobs:
             dev|release) ;;
             *) echo "invalid cargo-profile: ${profile} (want dev or release)" >&2; exit 1;;
           esac
-          # Pinned supported mapping. Kept in sync with the initializer
-          # tables; the copiertv mapping-agreement check enforces it.
-          allowed_pairs="ubuntu-24.04:x86_64-unknown-linux-gnu ubuntu-24.04-arm:aarch64-unknown-linux-gnu macos-26-intel:x86_64-apple-darwin macos-26:aarch64-apple-darwin windows-2025:x86_64-pc-windows-msvc windows-11-arm:aarch64-pc-windows-msvc"
+          # Pinned supported mapping: full os/cpu/runner/target tuples. Kept in
+          # sync with the initializer tables; the copiertv mapping-agreement
+          # check enforces it. Only validated tuples fan out.
+          allowed_platforms="linux:x86_64:ubuntu-24.04:x86_64-unknown-linux-gnu linux:arm64:ubuntu-24.04-arm:aarch64-unknown-linux-gnu macos:x86_64:macos-26-intel:x86_64-apple-darwin macos:arm64:macos-26:aarch64-apple-darwin windows:x86_64:windows-2025:x86_64-pc-windows-msvc windows:arm64:windows-11-arm:aarch64-pc-windows-msvc"
           validated="$(printf '%s' "${INPUT_PLATFORMS}" | jq -c '.')" || { echo 'platforms is not valid JSON' >&2; exit 1; }
           if [ "$(printf '%s' "${validated}" | jq 'type')" != '"array"' ]; then echo 'platforms must be a JSON array' >&2; exit 1; fi
           if [ "$(printf '%s' "${validated}" | jq 'length')" -eq 0 ]; then echo 'platforms must not be empty' >&2; exit 1; fi
@@ -59,10 +60,10 @@ jobs:
             for key in os cpu runner target; do
               if [ "$(printf '%s' "${cell}" | jq -r --arg k "${key}" '.[$k] | type')" != 'string' ]; then echo "platforms entry lacks string ${key}: ${cell}" >&2; exit 1; fi
             done
-            pair="$(printf '%s' "${cell}" | jq -r '"\(.runner):\(.target)"')"
-            case " ${allowed_pairs} " in
-              *" ${pair} "*) ;;
-              *) echo "unsupported runner/target pair: ${pair}" >&2; exit 1;;
+            tuple="$(printf '%s' "${cell}" | jq -r '"\(.os):\(.cpu):\(.runner):\(.target)"')"
+            case " ${allowed_platforms} " in
+              *" ${tuple} "*) ;;
+              *) echo "unsupported platform tuple: ${tuple}" >&2; exit 1;;
             esac
           done
           echo "platforms=${validated}" >>${GITHUB_OUTPUT}
