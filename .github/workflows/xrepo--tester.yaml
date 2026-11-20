@@ -1,0 +1,193 @@
+name: xrepo-tester
+
+# Template-owned cross-repo reusable tester. Consumers call the published
+# floating ref (emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-N);
+# nothing here is rendered per consumer. Inputs arrive validated from the
+# fixed validate job below; only its outputs feed the gate matrices.
+
+on:
+  workflow_call:
+    inputs:
+      platforms:
+        description: 'JSON array of {os, cpu, runner, target} platform objects.'
+        required: true
+        type: string
+      cargo-profile:
+        description: 'Cargo profile to gate: dev or release.'
+        required: true
+        type: string
+      has-library:
+        description: 'Whether the calling crate has a library target (doctests run only then).'
+        required: true
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+
+  validate:
+    # Fixed hosted validator: runs on a pinned runner, never on an
+    # input-selected one, and only its validated outputs feed the matrices.
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      platforms: {% raw %}${{ steps.check.outputs.platforms }}{% endraw %}
+      cargo-profile: {% raw %}${{ steps.check.outputs.cargo-profile }}{% endraw %}
+    steps:
+
+      - name: Validate Inputs
+        id: check
+        env:
+          INPUT_PLATFORMS: {% raw %}${{ inputs.platforms }}{% endraw %}
+          INPUT_PROFILE: {% raw %}${{ inputs.cargo-profile }}{% endraw %}
+        run: |
+          set -eu
+          profile="${INPUT_PROFILE}"
+          case "${profile}" in
+            dev|release) ;;
+            *) echo "invalid cargo-profile: ${profile} (want dev or release)" >&2; exit 1;;
+          esac
+          # Pinned supported mapping. Kept in sync with the initializer
+          # tables; the copiertv mapping-agreement check enforces it.
+          allowed_pairs="ubuntu-24.04:x86_64-unknown-linux-gnu ubuntu-24.04-arm:aarch64-unknown-linux-gnu macos-26-intel:x86_64-apple-darwin macos-26:aarch64-apple-darwin windows-2025:x86_64-pc-windows-msvc windows-11-arm:aarch64-pc-windows-msvc"
+          validated="$(printf '%s' "${INPUT_PLATFORMS}" | jq -compact-output '.')" || { echo 'platforms is not valid JSON' >&2; exit 1; }
+          if [ "$(printf '%s' "${validated}" | jq 'type')" != '"array"' ]; then echo 'platforms must be a JSON array' >&2; exit 1; fi
+          if [ "$(printf '%s' "${validated}" | jq 'length')" -eq 0 ]; then echo 'platforms must not be empty' >&2; exit 1; fi
+          printf '%s' "${validated}" | jq -compact-output -c '.[]' | while IFS= read -r cell; do
+            for key in os cpu runner target; do
+              if [ "$(printf '%s' "${cell}" | jq -r --arg k "${key}" '.[$k] | type')" != 'string' ]; then echo "platforms entry lacks string ${key}: ${cell}" >&2; exit 1; fi
+            done
+            pair="$(printf '%s' "${cell}" | jq -r '"\(.runner):\(.target)"')"
+            case " ${allowed_pairs} " in
+              *" ${pair} "*) ;;
+              *) echo "unsupported runner/target pair: ${pair}" >&2; exit 1;;
+            esac
+          done
+          echo "platforms=${validated}" >>${GITHUB_OUTPUT}
+          echo "cargo-profile=${profile}" >>${GITHUB_OUTPUT}
+
+  lint:
+    needs: [validate]
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: {% raw %}${{ fromJSON(needs.validate.outputs.platforms) }}{% endraw %}
+    runs-on: {% raw %}${{ matrix.platform.runner }}{% endraw %}
+    permissions:
+      contents: read
+    steps:
+
+      - name: Check Out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set Up Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Target
+        env:
+          TARGET_TRIPLE: {% raw %}${{ matrix.platform.target }}{% endraw %}
+        run: rustup target add "${TARGET_TRIPLE}"
+
+      - name: Install linecheck
+        run: cargo install linecheck --version 1.2.1 --locked
+
+      - name: Generate Lockfile If Missing
+        run: test -f Cargo.lock || cargo generate-lockfile
+        shell: bash
+
+      - name: Lint (Clippy)
+        run: cargo clippy --all-targets --no-default-features -- -D warnings
+
+      - name: Check Style (Rustfmt)
+        run: cargo fmt --all -- --check
+
+      - name: Check Line Counts
+        run: linecheck --config .auxiliary/configuration/linecheck.yaml src tests
+
+  build:
+    needs: [validate, lint]
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: {% raw %}${{ fromJSON(needs.validate.outputs.platforms) }}{% endraw %}
+    runs-on: {% raw %}${{ matrix.platform.runner }}{% endraw %}
+    permissions:
+      contents: read
+    steps:
+
+      - name: Check Out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set Up Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Target
+        env:
+          TARGET_TRIPLE: {% raw %}${{ matrix.platform.target }}{% endraw %}
+        run: rustup target add "${TARGET_TRIPLE}"
+
+      - name: Generate Lockfile If Missing
+        run: test -f Cargo.lock || cargo generate-lockfile
+        shell: bash
+
+      - name: Build (Dev)
+        if: {% raw %}${{ inputs.cargo-profile == 'dev' }}{% endraw %}
+        run: cargo build --locked --all-targets
+
+      - name: Build (Release)
+        if: {% raw %}${{ inputs.cargo-profile == 'release' }}{% endraw %}
+        run: cargo build --release --locked --all-targets --no-default-features
+
+  test:
+    needs: [validate, build]
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: {% raw %}${{ fromJSON(needs.validate.outputs.platforms) }}{% endraw %}
+    runs-on: {% raw %}${{ matrix.platform.runner }}{% endraw %}
+    permissions:
+      contents: read
+    steps:
+
+      - name: Check Out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set Up Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Target
+        env:
+          TARGET_TRIPLE: {% raw %}${{ matrix.platform.target }}{% endraw %}
+        run: rustup target add "${TARGET_TRIPLE}"
+
+      - name: Install nextest
+        run: cargo install cargo-nextest --version 0.9.146 --locked
+
+      - name: Generate Lockfile If Missing
+        run: test -f Cargo.lock || cargo generate-lockfile
+        shell: bash
+
+      - name: Test (Dev)
+        if: {% raw %}${{ inputs.cargo-profile == 'dev' }}{% endraw %}
+        run: cargo nextest run --no-default-features --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml
+
+      - name: Test (Release)
+        if: {% raw %}${{ inputs.cargo-profile == 'release' }}{% endraw %}
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo nextest run --no-default-features --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml
+
+      - name: Test Doctests (Dev)
+        if: {% raw %}${{ inputs.has-library && inputs.cargo-profile == 'dev' }}{% endraw %}
+        run: cargo test --doc --locked
+
+      - name: Test Doctests (Release)
+        if: {% raw %}${{ inputs.has-library && inputs.cargo-profile == 'release' }}{% endraw %}
+        run: cargo test --doc --release --locked

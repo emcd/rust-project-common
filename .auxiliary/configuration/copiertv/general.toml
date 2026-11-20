@@ -66,15 +66,18 @@ args = [
   "import pathlib,sys; d = pathlib.Path(sys.argv[1]); w = d / '.github' / 'workflows'; names = sorted(p.name for p in w.glob('*.yaml')); assert 'common-initializer.yaml' in names, names; assert not [n for n in names if '--' in n], names; t = (w / 'tester.yaml').read_text(); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); is_max = ('- id: cargo-fuzz' in h); has_custom = '  custom:' in t; assert has_custom == is_max, (has_custom, is_max); blk = t.split('  custom:')[1] if has_custom else ''; assert (('    uses: ./.github/workflows/local--tester.yaml' in blk) and ('contents: read' in blk) and ('if:' not in blk) and ('steps:' not in blk)) if has_custom else True; print('workflow inventory OK: custom=%s' % has_custom)",
   "{project_directory}",
 ]
-# Hook-to-CI parity for the release profile: the pre-push hook entries must
-# carry the exact CI release-gates commands (doctest twin only renders for
-# library shapes, matching the conditional CI step). All compared commands
-# are plain strings with no quoting, so plain substring matching applies.
+# Hook-to-shared parity for the release profile: the pre-push hook entries must
+# carry the exact CI release commands, which live in the root-hosted shared
+# tester (not in any rendered caller). Doctest twin only renders for library
+# shapes, matching the conditional CI step; the shared file always carries
+# both doctest steps behind has-library. All compared commands are plain
+# strings with no quoting, so plain substring matching applies. The shared
+# file is read from the repository root: run copiertv from the repository root.
 [[commands]]
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); r = (d / '.github' / 'workflows' / 'releaser.yaml').read_text(); n = 'cargo nextest run --no-default-features --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml'; b = 'cargo build --release --locked --all-targets --no-default-features'; c = 'cargo clippy --all-targets --no-default-features -- -D warnings'; assert b in h and b in r, 'build'; assert n in h and n in r, 'nextest'; assert c in h, 'clippy'; lib = 'cargo test --doc --release --locked'; has_lib = '[lib]' in (d / 'Cargo.toml').read_text(); assert (lib in h) == has_lib and (lib in r) == has_lib, has_lib; print('release parity OK: doctest=%s' % has_lib)",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; assert root.exists(), 'shared tester missing: checks run with cwd=template dir, whose parent must be the repo root'; x = root.read_text(); n = 'cargo nextest run --no-default-features --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml'; b = 'cargo build --release --locked --all-targets --no-default-features'; c = 'cargo clippy --all-targets --no-default-features -- -D warnings'; assert b in h and b in x, 'build'; assert n in h and n in x, 'nextest'; assert c in h, 'clippy'; lib = 'cargo test --doc --release --locked'; has_lib = '[lib]' in (d / 'Cargo.toml').read_text(); assert (lib in h) == has_lib and (lib in x), has_lib; print('release parity OK: doctest=%s' % has_lib)",
   "{project_directory}",
 ]
 
@@ -86,5 +89,25 @@ args = [
   "python3",
   "-c",
   "import pathlib,sys,tomllib; d = pathlib.Path(sys.argv[1]); p = d / '.auxiliary/configuration/nextest.toml'; assert p.exists(), 'config missing'; tomllib.load(open(p, 'rb')); h = (d / '.auxiliary/configuration/pre-commit.yaml').read_text(); r = (d / '.github/workflows/releaser.yaml').read_text(); f = '--config-file ' + '.auxiliary/configuration/nextest.toml'; assert h.count(f) == 2, h.count(f); assert r.count(f) == 1, r.count(f); print('nextest config OK')",
+  "{project_directory}",
+]
+
+# Hook-to-shared parity for the dev profile: same redirection as release.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; assert root.exists(), 'shared tester missing: checks run with cwd=template dir, whose parent must be the repo root'; x = root.read_text(); c = 'cargo clippy --all-targets --no-default-features -- -D warnings'; f = 'cargo fmt --all -- --check'; l = 'linecheck --config .auxiliary/configuration/linecheck.yaml src tests'; n = 'cargo nextest run --no-default-features --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml'; assert c in h and c in x, 'clippy'; assert f in h and f in x, 'fmt'; assert l in h and l in x, 'linecheck'; assert n in h and n in x, 'nextest'; lib = '[lib]' in (d / 'Cargo.toml').read_text(); dtest = 'cargo test --doc --locked'; assert (dtest in h) == lib and (dtest in x), lib; print('dev parity OK: doctest=%s' % lib)",
+  "{project_directory}",
+]
+
+# Initializer-to-callee mapping agreement: every rendered cell's
+# runner/target pair must fall inside the shared tester's pinned allowlist,
+# which is the single enforcement point before fan-out.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import json,pathlib,sys; d = pathlib.Path(sys.argv[1]); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; assert root.exists(), 'shared tester missing: checks run with cwd=template dir, whose parent must be the repo root'; line = next(l for l in root.read_text().splitlines() if l.strip().startswith('allowed_pairs=')); allowed = set(tuple(i.split(':', 1)) for i in line.split('=', 1)[1].strip().strip(chr(34)).split()); lines = (d / '.github' / 'workflows' / 'common-initializer.yaml').read_text().splitlines(); start = next(i for i, l in enumerate(lines) if l.rstrip().endswith(\"<<'EOF'\")) + 1; end = next(i for i, l in enumerate(lines) if l.strip() == 'EOF'); cells = [json.loads(l) for l in lines[start:end] if l.strip()]; assert cells, 'no cells'; rendered = set((c['runner'], c['target']) for c in cells); assert rendered <= allowed, rendered - allowed; print('mapping agreement OK: %d cells within allowlist' % len(cells))",
   "{project_directory}",
 ]
