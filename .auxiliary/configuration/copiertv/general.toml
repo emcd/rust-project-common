@@ -6,6 +6,10 @@
 # Inspect a render without committing anything:
 # `copiertv validate <variant> --preserve`.
 # List variants: `copiertv survey`.
+#
+# Conventions: one-line checks stay inline; checks needing structure use
+# TOML multi-line literals. `{variant}` selects the answers file so custom
+# enablement is read from answers, never inferred from markers.
 
 [answers]
 directory = "data/copier"
@@ -26,30 +30,80 @@ args = [
   "{project_directory}",
 ]
 
-# Tester callers are thin: the shared gates live in the root-hosted reusable
-# workflow, so no rendered caller may contain inline gate commands. The
-# releaser keeps its old inline shape until its own rewrite; its bootstrap
-# counts are asserted separately below.
+# Tester callers are thin and exactly shaped: parsed, not substring-matched.
+# Enabled custom and library shape come from the answers file directly.
 [[commands]]
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / '.github' / 'workflows'; t = (d / 'tester.yaml').read_text(); assert t.count('xrepo--tester.yaml@gha-1') == 2, t.count('xrepo--tester.yaml@gha-1'); assert '  final-gate:' in t and 'if: always()' in t; assert '  hygiene:' in t and 'pre-commit==4.6.2' in t; print('tester caller shape OK')",
+  '''
+import pathlib, sys, yaml
+d = pathlib.Path(sys.argv[1])
+t = yaml.safe_load((d / '.github/workflows/tester.yaml').read_text())
+a = yaml.safe_load((pathlib.Path.cwd().parent / ('data/copier/answers-%s.yaml' % sys.argv[2])).read_text())
+enabled = bool(a.get('enable_custom_ci'))
+has_lib = 'library' in a.get('crate_shape', [])
+host = 'emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1'
+for job, profile in (('gates-dev', 'dev'), ('gates-release', 'release')):
+    j = t['jobs'][job]
+    assert j['uses'] == host, j
+    assert j['needs'] == ['initialize'], j
+    assert j['permissions'] == {'contents': 'read'}, j
+    assert j['with'] == {'platforms': '${{ needs.initialize.outputs.platforms }}', 'cargo-profile': profile, 'has-library': has_lib}, j['with']
+h = t['jobs']['hygiene']
+assert h['runs-on'] == 'ubuntu-latest' and h['permissions'] == {'contents': 'read'}
+runs = [s['run'] for s in h['steps'] if 'run' in s]
+assert any(r.startswith('pipx install pre-commit==') for r in runs)
+pre = [r for r in runs if r.startswith('pre-commit run ')]
+assert pre, 'no hygiene invocations'
+for r in pre:
+    assert '--config .auxiliary/configuration/pre-commit.yaml' in r, r
+    assert '--hook-stage pre-commit' in r and '--all-files' in r, r
+if enabled:
+    c = t['jobs']['custom']
+    assert c['needs'] == ['initialize'] and c['permissions'] == {'contents': 'read'}
+    assert c['uses'] == './.github/workflows/local--tester.yaml'
+    assert c['with'] == {'platforms': '${{ needs.initialize.outputs.platforms }}', 'cargo-profile': 'dev'}
+    assert 'steps' not in c and 'if' not in c
+else:
+    assert 'custom' not in t['jobs']
+fg = t['jobs']['final-gate']
+want = {'gates-dev', 'gates-release', 'hygiene'} | ({'custom'} if enabled else set())
+assert set(fg['needs']) == want, fg['needs']
+assert fg.get('if') == 'always()', fg.get('if')
+assert fg['permissions'] == {}
+inj = t['jobs']['initialize']
+assert inj['uses'] == './.github/workflows/common-initializer.yaml' and inj['permissions'] == {}
+want_jobs = {'initialize', 'gates-dev', 'gates-release', 'hygiene', 'final-gate'} | ({'custom'} if enabled else set())
+assert set(t['jobs']) == want_jobs, set(t['jobs'])
+print('tester shape OK: custom=%s lib=%s' % (enabled, has_lib))
+''',
   "{project_directory}",
+  "{variant}",
 ]
 
-# Every lockfile bootstrap step must pin `shell: bash`: Windows runners
-# default to pwsh, which cannot run the POSIX predicate. Releaser still has
-# one bootstrap (release-gates) plus the publish bootstrap only when
-# publication is enabled, plus a third when the binary pipeline renders
-# (build-binaries). The binary-naming step also pins bash for its `[[ ]]`
-# predicate, so releaser `shell: bash` runs one ahead of the bootstrap count
-# whenever build-binaries renders.
+# Shell pinning: every lockfile bootstrap and every rustup target step must
+# pin `shell: bash` (Windows defaults to pwsh). The tester has neither kind
+# of step; the releaser and the shared file must pin each one individually.
 [[commands]]
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / '.github' / 'workflows'; r = (d / 'releaser.yaml').read_text(); rn, rh = r.count('Generate Lockfile If Missing'), r.count('shell: bash'); assert (rn, rh) in ((1, 1), (2, 2), (3, 4)), (rn, rh); print('bootstrap shells OK: releaser=%d' % rn)",
+  '''
+import pathlib, sys, yaml
+d = pathlib.Path(sys.argv[1])
+r = yaml.safe_load((d / '.github/workflows/releaser.yaml').read_text())
+x = yaml.safe_load((pathlib.Path.cwd().parent / '.github/workflows/xrepo--tester.yaml').read_text())
+for name, doc in (('releaser', r), ('shared', x)):
+    for job, body in doc['jobs'].items():
+        for s in body.get('steps', []):
+            run = s.get('run', '')
+            if 'rustup target add' in run or run.strip() == 'test -f Cargo.lock || cargo generate-lockfile':
+                assert s.get('shell') == 'bash', (name, job, run[:60])
+t = (d / '.github/workflows/tester.yaml').read_text()
+assert 'rustup target add' not in t and 'Generate Lockfile If Missing' not in t
+print('shell pinning OK')
+''',
   "{project_directory}",
 ]
 
@@ -60,37 +114,96 @@ args = [
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; r = (pathlib.Path(sys.argv[1]) / '.github' / 'workflows' / 'releaser.yaml').read_text(); assert ('publish-github' in r) == ('build-binaries' in r), 'binary pipeline halves'; assert ('publish-github' not in r) or ('steps.attest.outputs.bundle-path' in r and '-provenance.sigstore.json' in r and 'artifacts/*' in r and '-- \"${RELEASE_TAG}\"' in r and 'artifacts/*' in r.split('Upload Release Artifacts')[1]), 'bundle staging'; print('release bundle OK' if 'publish-github' in r else 'no binary pipeline OK')",
+  "import pathlib,sys; r = (pathlib.Path(sys.argv[1]) / '.github' / 'workflows' / 'releaser.yaml').read_text(); assert ('publish-github' in r) == ('build-binaries' in r), 'binary pipeline halves'; assert ('publish-github' not in r) or ('steps.attest.outputs.bundle-path' in r and '-provenance.sigstore.json' in r and 'artifacts/*' in r and '-- \"${RELEASE_TAG}\"' in r and 'artifacts/*' in r.split('Upload Release Artifacts')[1]), 'bundle staging'; print('release bundle OK' if 'publish-github' in r else 'no pipeline OK')",
   "{project_directory}",
 ]
 
 # Rendered workflow filenames use the common- prefix for template-owned
 # shared files; xrepo-- names are referenced remotely and never rendered.
 # local-- stubs render whenever absent (protected, never overwritten) and fail
-# loudly until the consumer implements them. The maximum variant is
-# the all-opt-in render, so it carries the enabled custom job; the others
-# must omit it byte-entirely. Enablement is read from the render (fuzz hook
-# marks the all-opt-in variant), not from the answers file, which copiertv
-# does not write into renders.
+# loudly until the consumer implements them. Enablement is read from the
+# answers file, not inferred from markers.
 [[commands]]
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); w = d / '.github' / 'workflows'; names = sorted(p.name for p in w.glob('*.yaml')); assert 'common-initializer.yaml' in names, names; assert not [n for n in names if n.startswith('xrepo--')], names; assert {'local--tester.yaml', 'local--releaser.yaml'} <= set(names), names; assert all(('exit 1' in (w / s).read_text() and 'platforms:' in (w / s).read_text() and 'cargo-profile:' in (w / s).read_text() and 'contents: read' in (w / s).read_text()) for s in ('local--tester.yaml', 'local--releaser.yaml')), 'stub contract'; t = (w / 'tester.yaml').read_text(); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); is_max = ('- id: cargo-fuzz' in h); has_custom = '  custom:' in t; assert has_custom == is_max, (has_custom, is_max); blk = t.split('  custom:')[1].split('  final-gate:')[0] if has_custom else ''; assert (('    uses: ./.github/workflows/local--tester.yaml' in blk) and ('contents: read' in blk) and ('platforms:' in blk) and ('cargo-profile: dev' in blk) and ('if:' not in blk) and ('steps:' not in blk)) if has_custom else True; print('workflow inventory OK: custom=%s' % has_custom)",
+  '''
+import pathlib, sys, yaml
+d = pathlib.Path(sys.argv[1])
+w = d / '.github' / 'workflows'
+names = sorted(p.name for p in w.glob('*.yaml'))
+assert 'common-initializer.yaml' in names, names
+assert not [n for n in names if n.startswith('xrepo--')], names
+assert {'local--tester.yaml', 'local--releaser.yaml'} <= set(names), names
+for s in ('local--tester.yaml', 'local--releaser.yaml'):
+    c = yaml.safe_load((w / s).read_text())
+    assert c[True]['workflow_call']['inputs'].keys() == {'platforms', 'cargo-profile'}, s
+    assert c['permissions'] == {'contents': 'read'}, s
+    assert any('exit 1' in str(step.get('run', '')) for step in c['jobs']['implement']['steps']), s
+a = yaml.safe_load((pathlib.Path.cwd().parent / ('data/copier/answers-%s.yaml' % sys.argv[2])).read_text())
+t = (w / 'tester.yaml').read_text()
+assert ('  custom:' in t) == bool(a.get('enable_custom_ci'))
+print('workflow inventory OK: custom=%s' % a.get('enable_custom_ci'))
+''',
   "{project_directory}",
+  "{variant}",
 ]
-# Hook-to-shared parity for the release profile: the pre-push hook entries must
-# carry the exact CI release commands, which live in the root-hosted shared
-# tester (not in any rendered caller). Doctest twin only renders for library
-# shapes, matching the conditional CI step; the shared file always carries
-# both doctest steps behind has-library. All compared commands are plain
-# strings with no quoting, so plain substring matching applies. The shared
-# file is read from the repository root: run copiertv from the repository root.
+
+# Exact hook-to-shared command mapping, both directions: every mapped hook
+# entry must equal its CI twin after stripping the single documented
+# lockfile-bootstrap wrapper, and every shared gate command must be either
+# mapped or explicitly allowlisted (no twins: installs, bootstrap, target
+# setup, dev-only builds). Either side drifting fails the check.
 [[commands]]
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; assert root.exists(), 'shared tester missing: checks run with cwd=template dir, whose parent must be the repo root'; x = root.read_text(); n = 'cargo nextest run --no-default-features --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml'; b = 'cargo build --release --locked --all-targets --no-default-features'; c = 'cargo clippy --all-targets --no-default-features -- -D warnings'; assert b in h and b in x, 'build'; assert n in h and n in x, 'nextest'; assert c in h, 'clippy'; lib = 'cargo test --doc --release --locked'; has_lib = '[lib]' in (d / 'Cargo.toml').read_text(); assert (lib in h) == has_lib and (lib in x), has_lib; print('release parity OK: doctest=%s' % has_lib)",
+  '''
+import pathlib, sys, yaml
+d = pathlib.Path(sys.argv[1])
+h = yaml.safe_load((d / '.auxiliary/configuration/pre-commit.yaml').read_text())
+lib = '[lib]' in (d / 'Cargo.toml').read_text()
+wrapper = "bash -c 'test -f Cargo.lock || cargo generate-lockfile; exec "
+entries = {}
+for repo in h['repos']:
+    if not isinstance(repo, dict) or repo.get('repo') != 'local':
+        continue
+    for hook in repo['hooks']:
+        if hook['id'] in ('cargo-fuzz', 'cargo-bench'):
+            continue
+        e = hook['entry']
+        if e.startswith(wrapper) and e.endswith("'"):
+            e = e[len(wrapper):-1]
+        entries[hook['id']] = e
+expected = {
+    'cargo-clippy': 'cargo clippy --all-targets --no-default-features -- -D warnings',
+    'cargo-fmt': 'cargo fmt --all -- --check',
+    'linecheck': 'linecheck --config .auxiliary/configuration/linecheck.yaml src tests',
+    'cargo-nextest': 'cargo nextest run --no-default-features --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml',
+    'cargo-build-release': 'cargo build --release --locked --all-targets --no-default-features',
+    'cargo-nextest-release': 'cargo nextest run --no-default-features --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml',
+}
+if lib:
+    expected['cargo-doctest'] = 'cargo test --doc --locked'
+    expected['cargo-doctest-release'] = 'cargo test --doc --release --locked'
+assert entries == expected, (entries, expected)
+x = yaml.safe_load((pathlib.Path.cwd().parent / '.github/workflows/xrepo--tester.yaml').read_text())
+runs = [s['run'] for job in ('lint', 'build', 'test') for s in x['jobs'][job]['steps'] if 'run' in s]
+allowed = {
+    'rustup target add "${TARGET_TRIPLE}"',
+    'test -f Cargo.lock || cargo generate-lockfile',
+    'cargo install linecheck --version 1.2.1 --locked',
+    'cargo install cargo-nextest --version 0.9.146 --locked',
+    'cargo build --locked --all-targets',
+    'cargo test --doc --locked',
+    'cargo test --doc --release --locked',
+}
+for cmd in expected.values():
+    assert cmd in runs, cmd
+for cmd in runs:
+    assert cmd in set(expected.values()) | allowed, cmd
+print('command mapping OK: doctest=%s' % lib)
+''',
   "{project_directory}",
 ]
 
@@ -105,15 +218,6 @@ args = [
   "{project_directory}",
 ]
 
-# Hook-to-shared parity for the dev profile: same redirection as release.
-[[commands]]
-args = [
-  "python3",
-  "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; assert root.exists(), 'shared tester missing: checks run with cwd=template dir, whose parent must be the repo root'; x = root.read_text(); c = 'cargo clippy --all-targets --no-default-features -- -D warnings'; f = 'cargo fmt --all -- --check'; l = 'linecheck --config .auxiliary/configuration/linecheck.yaml src tests'; n = 'cargo nextest run --no-default-features --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml'; assert c in h and c in x, 'clippy'; assert f in h and f in x, 'fmt'; assert l in h and l in x, 'linecheck'; assert n in h and n in x, 'nextest'; lib = '[lib]' in (d / 'Cargo.toml').read_text(); dtest = 'cargo test --doc --locked'; assert (dtest in h) == lib and (dtest in x), lib; print('dev parity OK: doctest=%s' % lib)",
-  "{project_directory}",
-]
-
 # Initializer-to-callee mapping agreement: every rendered cell's
 # runner/target pair must fall inside the shared tester's pinned allowlist,
 # which is the single enforcement point before fan-out.
@@ -125,29 +229,75 @@ args = [
   "{project_directory}",
 ]
 
-# Releaser wiring: exactly one shared release call; publishers and binaries
-# wait on release gates plus the unconditional package job (plus
-# custom-release only when rendered); custom-release carries only the shared
-# pair with explicit permissions; publish-github stays transitively behind
-# build-binaries.
+# Releaser wiring, parsed not counted: exact needs, permissions, trigger,
+# and custom-release contract per the answers file. Publisher privileges
+# stay exactly as approved; publish-github waits via build-binaries.
 [[commands]]
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); r = (d / '.github' / 'workflows' / 'releaser.yaml').read_text(); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); is_max = '- id: cargo-fuzz' in h; assert r.count('xrepo--tester.yaml@gha-1') == 1; exp = 2 if 'build-binaries:' in r else 0; assert r.count('release-gates, package') == exp; assert ('  custom-release:' in r) == is_max; blk = r.split('  custom-release:')[1].split('  package:')[0] if is_max else ''; assert ((('    uses: ./.github/workflows/local--releaser.yaml' in blk) and ('contents: read' in blk) and ('platforms:' in blk) and ('cargo-profile: release' in blk) and ('if:' not in blk) and ('steps:' not in blk)) if is_max else True); assert ('publish-github' not in r) or ('needs: [initialize, build-binaries]' in r); print('releaser wiring OK')",
+  '''
+import pathlib, sys, yaml
+d = pathlib.Path(sys.argv[1])
+r = yaml.safe_load((d / '.github/workflows/releaser.yaml').read_text())
+a = yaml.safe_load((pathlib.Path.cwd().parent / ('data/copier/answers-%s.yaml' % sys.argv[2])).read_text())
+enabled = bool(a.get('enable_custom_ci'))
+pub = bool(a.get('enable_publication'))
+exe = 'executable' in a.get('crate_shape', [])
+has_lib = 'library' in a.get('crate_shape', [])
+host = 'emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1'
+rg = r['jobs']['release-gates']
+assert rg['uses'] == host and rg['needs'] == ['initialize'] and rg['permissions'] == {'contents': 'read'}
+assert rg['with'] == {'platforms': '${{ needs.initialize.outputs.platforms }}', 'cargo-profile': 'release', 'has-library': has_lib}
+pk = r['jobs']['package']
+assert pk['needs'] == ['initialize', 'release-gates'] and pk['permissions'] == {'contents': 'read'}
+assert 'matrix' in pk['strategy'] and pk['runs-on'] == '${{ matrix.platform.runner }}'
+if enabled:
+    cr = r['jobs']['custom-release']
+    assert cr['needs'] == ['initialize'] and cr['permissions'] == {'contents': 'read'}
+    assert cr['uses'] == './.github/workflows/local--releaser.yaml'
+    assert cr['with'] == {'platforms': '${{ needs.initialize.outputs.platforms }}', 'cargo-profile': 'release'}
+    assert 'steps' not in cr and 'if' not in cr
+else:
+    assert 'custom-release' not in r['jobs']
+needspub = ['initialize', 'release-gates', 'package'] + (['custom-release'] if enabled else [])
+assert ('publish-crates-io' in r['jobs']) == pub
+if pub:
+    pc = r['jobs']['publish-crates-io']
+    assert pc['needs'] == needspub and pc['permissions'] == {'contents': 'read', 'id-token': 'write'}
+    assert pc['environment'] == 'crates-io'
+    assert pc['if'] == "${{ !inputs.dry-run && startsWith(github.ref, 'refs/tags/') }}"
+has_pipe = pub and exe
+assert ('build-binaries' in r['jobs']) == has_pipe
+assert ('publish-github' in r['jobs']) == has_pipe
+if has_pipe:
+    bb = r['jobs']['build-binaries']
+    assert bb['needs'] == needspub and bb['permissions'] == {'contents': 'read'}
+    assert 'matrix' in bb['strategy']
+    pg = r['jobs']['publish-github']
+    assert pg['needs'] == ['initialize', 'build-binaries']
+    assert pg['if'] == "${{ !inputs.dry-run && startsWith(github.ref, 'refs/tags/') }}"
+    assert pg['permissions'] == {'artifact-metadata': 'write', 'attestations': 'write', 'contents': 'write', 'id-token': 'write'}
+for job in ('package', 'publish-crates-io', 'build-binaries', 'publish-github'):
+    if job in r['jobs']:
+        for s in r['jobs'][job].get('steps', []):
+            if s.get('uses', '').startswith('actions/checkout'):
+                assert s.get('with', {}).get('persist-credentials') is False, (job, s)
+assert r[True]['push']['tags'] == ['v[0-9]+.*']
+print('releaser wiring OK')
+''',
   "{project_directory}",
+  "{variant}",
 ]
 
-# Least-privilege controls: every job-level reusable call in the rendered
-# callers must sit under an explicit permissions block; the shared callee,
-# hygiene, package, and initializer jobs carry explicit least-privilege
-# blocks; non-pushing checkouts drop credentials; validation rejects unknown
-# runners and never interpolates inputs into shell.
+# Least-privilege residual controls: initializer blocks, shared callee
+# blocks, credential-less checkouts, no privileged pull_request execution,
+# final-gate evaluation wiring, and validation-step guards.
 [[commands]]
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); t = (d / '.github' / 'workflows' / 'tester.yaml').read_text(); r = (d / '.github' / 'workflows' / 'releaser.yaml').read_text(); n = (d / '.github' / 'workflows' / 'common-initializer.yaml').read_text(); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; x = root.read_text(); tl = t.splitlines(); starts = [i for i, l in enumerate(tl) if l.startswith('  ') and not l.startswith('   ') and l.rstrip().endswith(':')]; bad = [tl[s].strip() for k, s in enumerate(starts) for b in [tl[s:(starts[k+1] if k+1 < len(starts) else len(tl))]] if any(x.startswith('    uses: ') and 'actions/' not in x for x in b) and not any(x.strip().startswith('permissions:') for x in b)]; assert not bad, bad; rl = r.splitlines(); starts = [i for i, l in enumerate(rl) if l.startswith('  ') and not l.startswith('   ') and l.rstrip().endswith(':')]; bad = [rl[s].strip() for k, s in enumerate(starts) for b in [rl[s:(starts[k+1] if k+1 < len(starts) else len(rl))]] if any(x.startswith('    uses: ') and 'actions/' not in x for x in b) and not any(x.strip().startswith('permissions:') for x in b)]; assert not bad, bad; assert 'permissions: {}' in n; assert x.count('    permissions:') == 4; assert t.count('persist-credentials: false') == 1; exp = 2 if 'build-binaries:' in r else 1; assert r.count('persist-credentials: false') == exp, exp; assert x.count('persist-credentials: false') == 3; assert 'pull_request_target' not in t; assert 'toJSON(needs)' in t; assert 'allowed_pairs=' in x and 'unsupported runner/target pair' in x and x.count('exit 1') >= 5; print('least privilege OK')",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); t = (d / '.github' / 'workflows' / 'tester.yaml').read_text(); r = (d / '.github' / 'workflows' / 'releaser.yaml').read_text(); n = (d / '.github' / 'workflows' / 'common-initializer.yaml').read_text(); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; x = root.read_text(); assert 'permissions: {}' in n; assert x.count('    permissions:') == 4; assert t.count('persist-credentials: false') == 1; exp = 1 + (1 if 'build-binaries:' in r else 0) + (2 if 'publish-crates-io:' in r else 0); assert r.count('persist-credentials: false') == exp, (exp, r.count('persist-credentials: false')); assert x.count('persist-credentials: false') == 3; assert 'pull_request_target' not in t; assert 'toJSON(needs)' in t; assert 'allowed_pairs=' in x and 'unsupported runner/target pair' in x and x.count('exit 1') >= 5; print('least privilege OK')",
   "{project_directory}",
 ]
 
@@ -184,5 +334,53 @@ for hook, line in run.items():
     assert '--all-files' in line, hook
 print('hygiene parity OK: %d hooks' % len(ids))
 ''',
+  "{project_directory}",
+]
+
+# Validator execution: extract the exact validation step from the shared
+# workflow and run it against stock initializer output plus red cases.
+# Stock must pass with outputs emitted; every red case must fail closed
+# with no outputs.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  '''
+import json, os, pathlib, subprocess, sys, tempfile
+d = pathlib.Path(sys.argv[1])
+text = (pathlib.Path.cwd().parent / '.github/workflows/xrepo--tester.yaml').read_text().splitlines()
+start = next(i for i, l in enumerate(text) if l.strip() == 'id: check')
+run_at = next(i for i in range(start, len(text)) if text[i].strip() == 'run: |')
+end = next(i for i in range(run_at + 1, len(text)) if text[i].strip() != '' and not text[i].startswith('          '))
+script = chr(10).join(l[10:] for l in text[run_at + 1:end]) + chr(10)
+assert script.startswith('set -euo pipefail')
+lines = (d / '.github/workflows/common-initializer.yaml').read_text().splitlines()
+s0 = next(i for i, l in enumerate(lines) if l.rstrip().endswith("<<'EOF'")) + 1
+s1 = next(i for i, l in enumerate(lines) if l.strip() == 'EOF')
+stock = json.dumps([json.loads(l) for l in lines[s0:s1] if l.strip()], separators=(',', ':'))
+cases = [('dev', stock, True), ('release', stock, True), ('bogus', stock, False), ('dev', 'not json{{{', False), ('dev', '[]', False), ('dev', '["x"]', False), ('dev', json.dumps([{'os': 'linux', 'cpu': 'x86_64', 'runner': 'ubuntu-24.04'}]), False), ('dev', json.dumps([{'os': 'linux', 'cpu': 'x86_64', 'runner': 'ubuntu-24.04', 'target': 'aarch64-apple-darwin'}]), False), ('dev', json.dumps({'os': 'linux'}), False)]
+for profile, platforms, expect_ok in cases:
+    with tempfile.NamedTemporaryFile('w', suffix='.sh', delete=False) as f:
+        f.write(script)
+        path = f.name
+    with tempfile.NamedTemporaryFile('w', delete=False) as g:
+        gout = g.name
+    proc = subprocess.run(['bash', path], env={'PATH': '/usr/bin:/bin:/usr/local/bin', 'INPUT_PLATFORMS': platforms, 'INPUT_PROFILE': profile, 'GITHUB_OUTPUT': gout}, capture_output=True, text=True)
+    out = pathlib.Path(gout).read_text()
+    ok = proc.returncode == 0
+    has_outputs = 'platforms=' in out and 'cargo-profile=' in out
+    assert ok == expect_ok and has_outputs == expect_ok, (profile, platforms[:60], proc.returncode, out[-200:], proc.stderr[-200:])
+print('validator execution OK: %d cases' % len(cases))
+''',
+  "{project_directory}",
+]
+
+# Template-source host pin: rendered callers must reference the template-owned
+# host literally, never the consumer gh_owner answer.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import pathlib; t = (pathlib.Path.cwd() / '.github/workflows/tester.yaml.jinja').read_text(); r = (pathlib.Path.cwd() / '.github/workflows/releaser.yaml.jinja').read_text(); lit = 'emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1'; assert t.count(lit) == 2 and r.count(lit) == 1; assert '{{ gh_owner }}/rust-project-common' not in t + r; print('host pin OK')",
   "{project_directory}",
 ]

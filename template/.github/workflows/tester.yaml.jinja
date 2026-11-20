@@ -20,7 +20,7 @@ jobs:
     needs: [initialize]
     permissions:
       contents: read
-    uses: {{ gh_owner }}/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1
+    uses: emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1
     with:
       platforms: {% raw %}${{ needs.initialize.outputs.platforms }}{% endraw %}
       cargo-profile: dev
@@ -30,7 +30,7 @@ jobs:
     needs: [initialize]
     permissions:
       contents: read
-    uses: {{ gh_owner }}/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1
+    uses: emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1
     with:
       platforms: {% raw %}${{ needs.initialize.outputs.platforms }}{% endraw %}
       cargo-profile: release

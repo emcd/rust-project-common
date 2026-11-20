@@ -2,7 +2,7 @@ name: release
 
 on:
   push:
-    tags: [ 'v[0-9]*.*' ]
+    tags: [ 'v[0-9]+.*' ]
   workflow_dispatch:
     inputs:
       dry-run:
@@ -24,7 +24,7 @@ jobs:
     needs: [initialize]
     permissions:
       contents: read
-    uses: {{ gh_owner }}/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1
+    uses: emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1
     with:
       platforms: {% raw %}${{ needs.initialize.outputs.platforms }}{% endraw %}
       cargo-profile: release
@@ -71,6 +71,7 @@ jobs:
         env:
           TARGET_TRIPLE: {% raw %}${{ matrix.platform.target }}{% endraw %}
         run: rustup target add "${TARGET_TRIPLE}"
+        shell: bash
 
       - name: Generate Lockfile If Missing
         run: test -f Cargo.lock || cargo generate-lockfile
@@ -99,6 +100,8 @@ jobs:
 
       - name: Check Out
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set Up Toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -140,6 +143,7 @@ jobs:
         env:
           TARGET_TRIPLE: {% raw %}${{ matrix.platform.target }}{% endraw %}
         run: rustup target add "${TARGET_TRIPLE}"
+        shell: bash
 
       - name: Generate Lockfile If Missing
         run: test -f Cargo.lock || cargo generate-lockfile
@@ -187,6 +191,8 @@ jobs:
 
       - name: Check Out
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Download All Binaries
         uses: actions/download-artifact@v8

@@ -38,11 +38,12 @@ jobs:
 
       - name: Validate Inputs
         id: check
+        shell: bash
         env:
           INPUT_PLATFORMS: ${{ inputs.platforms }}
           INPUT_PROFILE: ${{ inputs.cargo-profile }}
         run: |
-          set -eu
+          set -euo pipefail
           profile="${INPUT_PROFILE}"
           case "${profile}" in
             dev|release) ;;
@@ -51,10 +52,10 @@ jobs:
           # Pinned supported mapping. Kept in sync with the initializer
           # tables; the copiertv mapping-agreement check enforces it.
           allowed_pairs="ubuntu-24.04:x86_64-unknown-linux-gnu ubuntu-24.04-arm:aarch64-unknown-linux-gnu macos-26-intel:x86_64-apple-darwin macos-26:aarch64-apple-darwin windows-2025:x86_64-pc-windows-msvc windows-11-arm:aarch64-pc-windows-msvc"
-          validated="$(printf '%s' "${INPUT_PLATFORMS}" | jq -compact-output '.')" || { echo 'platforms is not valid JSON' >&2; exit 1; }
+          validated="$(printf '%s' "${INPUT_PLATFORMS}" | jq -c '.')" || { echo 'platforms is not valid JSON' >&2; exit 1; }
           if [ "$(printf '%s' "${validated}" | jq 'type')" != '"array"' ]; then echo 'platforms must be a JSON array' >&2; exit 1; fi
           if [ "$(printf '%s' "${validated}" | jq 'length')" -eq 0 ]; then echo 'platforms must not be empty' >&2; exit 1; fi
-          printf '%s' "${validated}" | jq -compact-output -c '.[]' | while IFS= read -r cell; do
+          printf '%s' "${validated}" | jq -c '.[]' | while IFS= read -r cell; do
             for key in os cpu runner target; do
               if [ "$(printf '%s' "${cell}" | jq -r --arg k "${key}" '.[$k] | type')" != 'string' ]; then echo "platforms entry lacks string ${key}: ${cell}" >&2; exit 1; fi
             done
@@ -90,6 +91,7 @@ jobs:
         env:
           TARGET_TRIPLE: ${{ matrix.platform.target }}
         run: rustup target add "${TARGET_TRIPLE}"
+        shell: bash
 
       - name: Install linecheck
         run: cargo install linecheck --version 1.2.1 --locked
@@ -130,6 +132,7 @@ jobs:
         env:
           TARGET_TRIPLE: ${{ matrix.platform.target }}
         run: rustup target add "${TARGET_TRIPLE}"
+        shell: bash
 
       - name: Generate Lockfile If Missing
         run: test -f Cargo.lock || cargo generate-lockfile
@@ -166,6 +169,7 @@ jobs:
         env:
           TARGET_TRIPLE: ${{ matrix.platform.target }}
         run: rustup target add "${TARGET_TRIPLE}"
+        shell: bash
 
       - name: Install nextest
         run: cargo install cargo-nextest --version 0.9.146 --locked
