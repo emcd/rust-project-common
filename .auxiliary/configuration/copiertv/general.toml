@@ -138,6 +138,19 @@ args = [
   "{project_directory}",
 ]
 
+# Least-privilege controls: every job-level reusable call in the rendered
+# callers must sit under an explicit permissions block; the shared callee,
+# hygiene, package, and initializer jobs carry explicit least-privilege
+# blocks; non-pushing checkouts drop credentials; validation rejects unknown
+# runners and never interpolates inputs into shell.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); t = (d / '.github' / 'workflows' / 'tester.yaml').read_text(); r = (d / '.github' / 'workflows' / 'releaser.yaml').read_text(); n = (d / '.github' / 'workflows' / 'common-initializer.yaml').read_text(); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; x = root.read_text(); tl = t.splitlines(); starts = [i for i, l in enumerate(tl) if l.startswith('  ') and not l.startswith('   ') and l.rstrip().endswith(':')]; bad = [tl[s].strip() for k, s in enumerate(starts) for b in [tl[s:(starts[k+1] if k+1 < len(starts) else len(tl))]] if any(x.startswith('    uses: ') and 'actions/' not in x for x in b) and not any(x.strip().startswith('permissions:') for x in b)]; assert not bad, bad; rl = r.splitlines(); starts = [i for i, l in enumerate(rl) if l.startswith('  ') and not l.startswith('   ') and l.rstrip().endswith(':')]; bad = [rl[s].strip() for k, s in enumerate(starts) for b in [rl[s:(starts[k+1] if k+1 < len(starts) else len(rl))]] if any(x.startswith('    uses: ') and 'actions/' not in x for x in b) and not any(x.strip().startswith('permissions:') for x in b)]; assert not bad, bad; assert 'permissions: {}' in n; assert x.count('    permissions:') == 4; assert t.count('persist-credentials: false') == 1; exp = 2 if 'build-binaries:' in r else 1; assert r.count('persist-credentials: false') == exp, exp; assert x.count('persist-credentials: false') == 3; assert 'pull_request_target' not in t; assert 'toJSON(needs)' in t; assert 'allowed_pairs=' in x and 'unsupported runner/target pair' in x and x.count('exit 1') >= 5; print('least privilege OK')",
+  "{project_directory}",
+]
+
 # Hygiene hook-ID parity: the tester hygiene job must invoke exactly the
 # file-hygiene hook IDs from the template pre-commit configuration (single
 # source of truth, not a parallel list), one invocation each with the
