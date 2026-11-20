@@ -47,7 +47,7 @@ host = 'emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1'
 for job, profile in (('gates-dev', 'dev'), ('gates-release', 'release')):
     j = t['jobs'][job]
     assert j['uses'] == host, j
-    assert j['needs'] == ['initialize'], j
+    assert j['needs'] == ['initialize', 'hygiene'], j
     assert j['permissions'] == {'contents': 'read'}, j
     assert j['with'] == {'platforms': '${{ needs.initialize.outputs.platforms }}', 'cargo-profile': profile, 'has-library': has_lib}, j['with']
 h = t['jobs']['hygiene']

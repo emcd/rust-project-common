@@ -17,7 +17,7 @@ jobs:
     permissions: {}
 
   gates-dev:
-    needs: [initialize]
+    needs: [initialize, hygiene]
     permissions:
       contents: read
     uses: emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1
@@ -27,7 +27,7 @@ jobs:
       has-library: {% if 'library' in crate_shape %}true{% else %}false{% endif %}
 
   gates-release:
-    needs: [initialize]
+    needs: [initialize, hygiene]
     permissions:
       contents: read
     uses: emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1
