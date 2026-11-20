@@ -100,7 +100,7 @@ args = [
 args = [
   "python3",
   "-c",
-  "import pathlib,sys,tomllib; d = pathlib.Path(sys.argv[1]); p = d / '.auxiliary/configuration/nextest.toml'; assert p.exists(), 'config missing'; tomllib.load(open(p, 'rb')); h = (d / '.auxiliary/configuration/pre-commit.yaml').read_text(); r = (d / '.github/workflows/releaser.yaml').read_text(); f = '--config-file ' + '.auxiliary/configuration/nextest.toml'; assert h.count(f) == 2, h.count(f); assert r.count(f) == 1, r.count(f); print('nextest config OK')",
+  "import pathlib,sys,tomllib; d = pathlib.Path(sys.argv[1]); p = d / '.auxiliary/configuration/nextest.toml'; assert p.exists(), 'config missing'; tomllib.load(open(p, 'rb')); h = (d / '.auxiliary/configuration/pre-commit.yaml').read_text(); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; assert root.exists(), 'shared tester missing'; x = root.read_text(); f = '--config-file ' + '.auxiliary/configuration/nextest.toml'; assert h.count(f) == 2, h.count(f); assert x.count(f) == 2, x.count(f); print('nextest config OK')",
   "{project_directory}",
 ]
 
@@ -121,6 +121,19 @@ args = [
   "python3",
   "-c",
   "import json,pathlib,sys; d = pathlib.Path(sys.argv[1]); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; assert root.exists(), 'shared tester missing: checks run with cwd=template dir, whose parent must be the repo root'; line = next(l for l in root.read_text().splitlines() if l.strip().startswith('allowed_pairs=')); allowed = set(tuple(i.split(':', 1)) for i in line.split('=', 1)[1].strip().strip(chr(34)).split()); lines = (d / '.github' / 'workflows' / 'common-initializer.yaml').read_text().splitlines(); start = next(i for i, l in enumerate(lines) if l.rstrip().endswith(\"<<'EOF'\")) + 1; end = next(i for i, l in enumerate(lines) if l.strip() == 'EOF'); cells = [json.loads(l) for l in lines[start:end] if l.strip()]; assert cells, 'no cells'; rendered = set((c['runner'], c['target']) for c in cells); assert rendered <= allowed, rendered - allowed; print('mapping agreement OK: %d cells within allowlist' % len(cells))",
+  "{project_directory}",
+]
+
+# Releaser wiring: exactly one shared release call; publishers and binaries
+# wait on release gates plus the unconditional package job (plus
+# custom-release only when rendered); custom-release carries only the shared
+# pair with explicit permissions; publish-github stays transitively behind
+# build-binaries.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); r = (d / '.github' / 'workflows' / 'releaser.yaml').read_text(); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); is_max = '- id: cargo-fuzz' in h; assert r.count('xrepo--tester.yaml@gha-1') == 1; exp = 2 if 'build-binaries:' in r else 0; assert r.count('release-gates, package') == exp; assert ('  custom-release:' in r) == is_max; blk = r.split('  custom-release:')[1].split('  package:')[0] if is_max else ''; assert ((('    uses: ./.github/workflows/local--releaser.yaml' in blk) and ('contents: read' in blk) and ('platforms:' in blk) and ('cargo-profile: release' in blk) and ('if:' not in blk) and ('steps:' not in blk)) if is_max else True); assert ('publish-github' not in r) or ('needs: [initialize, build-binaries]' in r); print('releaser wiring OK')",
   "{project_directory}",
 ]
 

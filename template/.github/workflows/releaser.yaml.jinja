@@ -2,7 +2,7 @@ name: release
 
 on:
   push:
-    tags: [ 'v[0-9]+.*' ]
+    tags: [ 'v[0-9]*.*' ]
   workflow_dispatch:
     inputs:
       dry-run:
@@ -18,44 +18,63 @@ jobs:
 
   initialize:
     uses: ./.github/workflows/common-initializer.yaml
+    permissions: {}
 
   release-gates:
     needs: [initialize]
+    permissions:
+      contents: read
+    uses: {{ gh_owner }}/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1
+    with:
+      platforms: {% raw %}${{ needs.initialize.outputs.platforms }}{% endraw %}
+      cargo-profile: release
+      has-library: {% if 'library' in crate_shape %}true{% else %}false{% endif %}
+{%- if enable_custom_ci %}
+
+  # Consumer-owned release gates live in ./.github/workflows/local--releaser.yaml
+  # (authored by the consumer, never rendered by the template). Publish jobs
+  # wait on it alongside the release gates. Job-level uses: reusable
+  # workflows cannot be invoked from a step.
+  custom-release:
+    needs: [initialize]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/local--releaser.yaml
+    with:
+      platforms: {% raw %}${{ needs.initialize.outputs.platforms }}{% endraw %}
+      cargo-profile: release
+{%- endif %}
+
+  # Local per-platform packaging. Runs unconditionally: custom off or on,
+  # dry runs, and publication-off configurations all still package, because
+  # publishers and binaries must never run on unpackaged gates.
+  package:
+    needs: [initialize, release-gates]
     strategy:
       fail-fast: true
       matrix:
-        cell: {% raw %}${{ fromJSON(needs.initialize.outputs.cells) }}{% endraw %}
-    runs-on: {% raw %}${{ matrix.cell.runner }}{% endraw %}
+        platform: {% raw %}${{ fromJSON(needs.initialize.outputs.platforms) }}{% endraw %}
+    runs-on: {% raw %}${{ matrix.platform.runner }}{% endraw %}
+    permissions:
+      contents: read
     steps:
 
       - name: Check Out
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set Up Toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Add Target
-        run: rustup target add {% raw %}${{ matrix.cell.target }}{% endraw %}
-
-      - name: Install nextest
-        run: cargo install cargo-nextest --version 0.9.146 --locked
+        env:
+          TARGET_TRIPLE: {% raw %}${{ matrix.platform.target }}{% endraw %}
+        run: rustup target add "${TARGET_TRIPLE}"
 
       - name: Generate Lockfile If Missing
         run: test -f Cargo.lock || cargo generate-lockfile
         shell: bash
-
-      - name: Build Release
-        run: cargo build --release --locked --all-targets --no-default-features
-
-      - name: Test Release
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo nextest run --no-default-features --release --locked --no-tests=warn --config-file .auxiliary/configuration/nextest.toml
-{%- if 'library' in crate_shape %}
-
-      - name: Test Release Doctests
-        run: cargo test --doc --release --locked
-{%- endif %}
 
       - name: Package
         run: cargo package --locked --no-verify
@@ -70,7 +89,7 @@ jobs:
   #   attestation is never silently skipped.
   publish-crates-io:
     if: {% raw %}${{ !inputs.dry-run && startsWith(github.ref, 'refs/tags/') }}{% endraw %}
-    needs: [initialize, release-gates]
+    needs: [initialize, release-gates, package{% if enable_custom_ci %}, custom-release{% endif %}]
     runs-on: ubuntu-latest
     environment: crates-io
     permissions:
@@ -99,22 +118,28 @@ jobs:
 {%- if 'executable' in crate_shape %}
 
   build-binaries:
-    needs: [initialize, release-gates]
+    needs: [initialize, release-gates, package{% if enable_custom_ci %}, custom-release{% endif %}]
+    permissions:
+      contents: read
     strategy:
       fail-fast: true
       matrix:
-        cell: {% raw %}${{ fromJSON(needs.initialize.outputs.cells) }}{% endraw %}
-    runs-on: {% raw %}${{ matrix.cell.runner }}{% endraw %}
+        platform: {% raw %}${{ fromJSON(needs.initialize.outputs.platforms) }}{% endraw %}
+    runs-on: {% raw %}${{ matrix.platform.runner }}{% endraw %}
     steps:
 
       - name: Check Out
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set Up Toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Add Target
-        run: rustup target add {% raw %}${{ matrix.cell.target }}{% endraw %}
+        env:
+          TARGET_TRIPLE: {% raw %}${{ matrix.platform.target }}{% endraw %}
+        run: rustup target add "${TARGET_TRIPLE}"
 
       - name: Generate Lockfile If Missing
         run: test -f Cargo.lock || cargo generate-lockfile
@@ -129,8 +154,8 @@ jobs:
         # Matrix values arrive via env, never interpolated into the script:
         # they are template-generated constants, but the habit must be uniform.
         env:
-          BINARY_TARGET: {% raw %}${{ matrix.cell.target }}{% endraw %}
-          BINARY_OS: {% raw %}${{ matrix.cell.os }}{% endraw %}
+          BINARY_TARGET: {% raw %}${{ matrix.platform.target }}{% endraw %}
+          BINARY_OS: {% raw %}${{ matrix.platform.os }}{% endraw %}
         run: |
           set -eu
           target="${BINARY_TARGET}"
@@ -146,7 +171,7 @@ jobs:
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: binary-{% raw %}${{ matrix.cell.os }}-${{ matrix.cell.cpu }}{% endraw %}
+          name: binary-{% raw %}${{ matrix.platform.os }}-${{ matrix.platform.cpu }}{% endraw %}
           path: {% raw %}${{ steps.binary.outputs.name }}{% endraw %}
 
   publish-github:
@@ -187,9 +212,9 @@ jobs:
       - name: Stage Attestation Bundle
         # actions/attest records provenance in the repository API and emits a
         # local bundle at an action-chosen path. Copy it under a deterministic
-        # name into artifacts/ so the release upload below attaches it. The
-        # output reference arrives via env so no expression text is
-        # interpolated into the script.
+        # name into artifacts/ so the release upload glob attaches it to the
+        # release. The output reference arrives via env so no expression text
+        # is interpolated into the script.
         env:
           BUNDLE_PATH: {% raw %}${{ steps.attest.outputs.bundle-path }}{% endraw %}
         run: |
