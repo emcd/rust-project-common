@@ -13,6 +13,8 @@ _message_after_update: |
 _skip_if_exists:
   - .auxiliary/configuration/linecheck.yaml
   - .auxiliary/configuration/nextest.toml
+  - .github/workflows/local--releaser.yaml
+  - .github/workflows/local--tester.yaml
   - CHANGELOG.md
   - src/bin/{{ crate_name }}.rs
   - src/lib.rs
@@ -119,7 +121,7 @@ cpu_architectures:
 
 enable_custom_ci:
     type: bool
-    help: 'Render a final custom gate job calling consumer-owned local--tester.yaml?'
+    help: 'Render custom gate jobs calling consumer-owned local--tester.yaml and local--releaser.yaml?'
     default: false
 
 enable_publication:

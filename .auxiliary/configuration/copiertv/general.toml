@@ -65,8 +65,9 @@ args = [
 ]
 
 # Rendered workflow filenames use the common- prefix for template-owned
-# shared files; double-hyphen names are never rendered (local-- is
-# consumer-authored, xrepo-- is referenced remotely). The maximum variant is
+# shared files; xrepo-- names are referenced remotely and never rendered.
+# local-- stubs render whenever absent (protected, never overwritten) and fail
+# loudly until the consumer implements them. The maximum variant is
 # the all-opt-in render, so it carries the enabled custom job; the others
 # must omit it byte-entirely. Enablement is read from the render (fuzz hook
 # marks the all-opt-in variant), not from the answers file, which copiertv
@@ -75,7 +76,7 @@ args = [
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); w = d / '.github' / 'workflows'; names = sorted(p.name for p in w.glob('*.yaml')); assert 'common-initializer.yaml' in names, names; assert not [n for n in names if '--' in n], names; t = (w / 'tester.yaml').read_text(); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); is_max = ('- id: cargo-fuzz' in h); has_custom = '  custom:' in t; assert has_custom == is_max, (has_custom, is_max); blk = t.split('  custom:')[1].split('  final-gate:')[0] if has_custom else ''; assert (('    uses: ./.github/workflows/local--tester.yaml' in blk) and ('contents: read' in blk) and ('platforms:' in blk) and ('cargo-profile: dev' in blk) and ('if:' not in blk) and ('steps:' not in blk)) if has_custom else True; print('workflow inventory OK: custom=%s' % has_custom)",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); w = d / '.github' / 'workflows'; names = sorted(p.name for p in w.glob('*.yaml')); assert 'common-initializer.yaml' in names, names; assert not [n for n in names if n.startswith('xrepo--')], names; assert {'local--tester.yaml', 'local--releaser.yaml'} <= set(names), names; assert all(('exit 1' in (w / s).read_text() and 'platforms:' in (w / s).read_text() and 'cargo-profile:' in (w / s).read_text() and 'contents: read' in (w / s).read_text()) for s in ('local--tester.yaml', 'local--releaser.yaml')), 'stub contract'; t = (w / 'tester.yaml').read_text(); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); is_max = ('- id: cargo-fuzz' in h); has_custom = '  custom:' in t; assert has_custom == is_max, (has_custom, is_max); blk = t.split('  custom:')[1].split('  final-gate:')[0] if has_custom else ''; assert (('    uses: ./.github/workflows/local--tester.yaml' in blk) and ('contents: read' in blk) and ('platforms:' in blk) and ('cargo-profile: dev' in blk) and ('if:' not in blk) and ('steps:' not in blk)) if has_custom else True; print('workflow inventory OK: custom=%s' % has_custom)",
   "{project_directory}",
 ]
 # Hook-to-shared parity for the release profile: the pre-push hook entries must
