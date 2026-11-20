@@ -26,18 +26,30 @@ args = [
   "{project_directory}",
 ]
 
-# Every lockfile bootstrap step must pin `shell: bash`: Windows runners
-# default to pwsh, which cannot run the POSIX predicate. Tester always has
-# two bootstraps (gates, build); releaser has one (release-gates) plus the
-# publish bootstrap only when publication is enabled, plus a third when the
-# binary pipeline renders (build-binaries). The binary-naming step also pins
-# bash for its `[[ ]]` predicate, so releaser `shell: bash` runs one ahead
-# of the bootstrap count whenever build-binaries renders.
+# Tester callers are thin: the shared gates live in the root-hosted reusable
+# workflow, so no rendered caller may contain inline gate commands. The
+# releaser keeps its old inline shape until its own rewrite; its bootstrap
+# counts are asserted separately below.
 [[commands]]
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / '.github' / 'workflows'; t = (d / 'tester.yaml').read_text(); r = (d / 'releaser.yaml').read_text(); tn, th = t.count('Generate Lockfile If Missing'), t.count('shell: bash'); rn, rh = r.count('Generate Lockfile If Missing'), r.count('shell: bash'); assert (tn, th) == (2, 2), (tn, th); assert (rn, rh) in ((1, 1), (2, 2), (3, 4)), (rn, rh); print('bootstrap shells OK: tester=2 releaser=%d' % rn)",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / '.github' / 'workflows'; t = (d / 'tester.yaml').read_text(); assert t.count('xrepo--tester.yaml@gha-1') == 2, t.count('xrepo--tester.yaml@gha-1'); assert '  final-gate:' in t and 'if: always()' in t; assert '  hygiene:' in t and 'pre-commit==4.6.2' in t; print('tester caller shape OK')",
+  "{project_directory}",
+]
+
+# Every lockfile bootstrap step must pin `shell: bash`: Windows runners
+# default to pwsh, which cannot run the POSIX predicate. Releaser still has
+# one bootstrap (release-gates) plus the publish bootstrap only when
+# publication is enabled, plus a third when the binary pipeline renders
+# (build-binaries). The binary-naming step also pins bash for its `[[ ]]`
+# predicate, so releaser `shell: bash` runs one ahead of the bootstrap count
+# whenever build-binaries renders.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / '.github' / 'workflows'; r = (d / 'releaser.yaml').read_text(); rn, rh = r.count('Generate Lockfile If Missing'), r.count('shell: bash'); assert (rn, rh) in ((1, 1), (2, 2), (3, 4)), (rn, rh); print('bootstrap shells OK: releaser=%d' % rn)",
   "{project_directory}",
 ]
 
@@ -63,7 +75,7 @@ args = [
 args = [
   "python3",
   "-c",
-  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); w = d / '.github' / 'workflows'; names = sorted(p.name for p in w.glob('*.yaml')); assert 'common-initializer.yaml' in names, names; assert not [n for n in names if '--' in n], names; t = (w / 'tester.yaml').read_text(); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); is_max = ('- id: cargo-fuzz' in h); has_custom = '  custom:' in t; assert has_custom == is_max, (has_custom, is_max); blk = t.split('  custom:')[1] if has_custom else ''; assert (('    uses: ./.github/workflows/local--tester.yaml' in blk) and ('contents: read' in blk) and ('if:' not in blk) and ('steps:' not in blk)) if has_custom else True; print('workflow inventory OK: custom=%s' % has_custom)",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]); w = d / '.github' / 'workflows'; names = sorted(p.name for p in w.glob('*.yaml')); assert 'common-initializer.yaml' in names, names; assert not [n for n in names if '--' in n], names; t = (w / 'tester.yaml').read_text(); h = (d / '.auxiliary' / 'configuration' / 'pre-commit.yaml').read_text(); is_max = ('- id: cargo-fuzz' in h); has_custom = '  custom:' in t; assert has_custom == is_max, (has_custom, is_max); blk = t.split('  custom:')[1].split('  final-gate:')[0] if has_custom else ''; assert (('    uses: ./.github/workflows/local--tester.yaml' in blk) and ('contents: read' in blk) and ('platforms:' in blk) and ('cargo-profile: dev' in blk) and ('if:' not in blk) and ('steps:' not in blk)) if has_custom else True; print('workflow inventory OK: custom=%s' % has_custom)",
   "{project_directory}",
 ]
 # Hook-to-shared parity for the release profile: the pre-push hook entries must
@@ -109,5 +121,41 @@ args = [
   "python3",
   "-c",
   "import json,pathlib,sys; d = pathlib.Path(sys.argv[1]); root = pathlib.Path.cwd().parent / '.github' / 'workflows' / 'xrepo--tester.yaml'; assert root.exists(), 'shared tester missing: checks run with cwd=template dir, whose parent must be the repo root'; line = next(l for l in root.read_text().splitlines() if l.strip().startswith('allowed_pairs=')); allowed = set(tuple(i.split(':', 1)) for i in line.split('=', 1)[1].strip().strip(chr(34)).split()); lines = (d / '.github' / 'workflows' / 'common-initializer.yaml').read_text().splitlines(); start = next(i for i, l in enumerate(lines) if l.rstrip().endswith(\"<<'EOF'\")) + 1; end = next(i for i, l in enumerate(lines) if l.strip() == 'EOF'); cells = [json.loads(l) for l in lines[start:end] if l.strip()]; assert cells, 'no cells'; rendered = set((c['runner'], c['target']) for c in cells); assert rendered <= allowed, rendered - allowed; print('mapping agreement OK: %d cells within allowlist' % len(cells))",
+  "{project_directory}",
+]
+
+# Hygiene hook-ID parity: the tester hygiene job must invoke exactly the
+# file-hygiene hook IDs from the template pre-commit configuration (single
+# source of truth, not a parallel list), one invocation each with the
+# rendered config path, pre-commit stage, and all-files semantics.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  '''
+import pathlib, sys
+d = pathlib.Path(sys.argv[1])
+t = (d / '.github/workflows/tester.yaml').read_text().splitlines()
+h = (d / '.auxiliary/configuration/pre-commit.yaml').read_text().splitlines()
+ids = []
+in_hooks = False
+for line in h:
+    stripped = line.strip()
+    if stripped.startswith('- repo:'):
+        in_hooks = 'pre-commit/pre-commit-hooks' in stripped
+    elif in_hooks and stripped.startswith('- id:'):
+        ids.append(stripped.split('- id:')[1].strip())
+run = {}
+for line in t:
+    if 'pre-commit run ' in line:
+        hook = line.split('pre-commit run ')[1].split()[0]
+        run[hook] = line
+assert sorted(run) == sorted(ids), (sorted(run), sorted(ids))
+for hook, line in run.items():
+    assert '--config .auxiliary/configuration/pre-commit.yaml' in line, hook
+    assert '--hook-stage pre-commit' in line, hook
+    assert '--all-files' in line, hook
+print('hygiene parity OK: %d hooks' % len(ids))
+''',
   "{project_directory}",
 ]
