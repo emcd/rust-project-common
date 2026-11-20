@@ -49,23 +49,13 @@ jobs:
             dev|release) ;;
             *) echo "invalid cargo-profile: ${profile} (want dev or release)" >&2; exit 1;;
           esac
-          # Pinned supported mapping: full os/cpu/runner/target tuples. Kept in
-          # sync with the initializer tables; the copiertv mapping-agreement
-          # check enforces it. Only validated tuples fan out.
-          allowed_platforms="linux:x86_64:ubuntu-24.04:x86_64-unknown-linux-gnu linux:arm64:ubuntu-24.04-arm:aarch64-unknown-linux-gnu macos:x86_64:macos-26-intel:x86_64-apple-darwin macos:arm64:macos-26:aarch64-apple-darwin windows:x86_64:windows-2025:x86_64-pc-windows-msvc windows:arm64:windows-11-arm:aarch64-pc-windows-msvc"
-          validated="$(printf '%s' "${INPUT_PLATFORMS}" | jq -c '.')" || { echo 'platforms is not valid JSON' >&2; exit 1; }
-          if [ "$(printf '%s' "${validated}" | jq 'type')" != '"array"' ]; then echo 'platforms must be a JSON array' >&2; exit 1; fi
-          if [ "$(printf '%s' "${validated}" | jq 'length')" -eq 0 ]; then echo 'platforms must not be empty' >&2; exit 1; fi
-          printf '%s' "${validated}" | jq -c '.[]' | while IFS= read -r cell; do
-            for key in os cpu runner target; do
-              if [ "$(printf '%s' "${cell}" | jq -r --arg k "${key}" '.[$k] | type')" != 'string' ]; then echo "platforms entry lacks string ${key}: ${cell}" >&2; exit 1; fi
-            done
-            tuple="$(printf '%s' "${cell}" | jq -r '"\(.os):\(.cpu):\(.runner):\(.target)"')"
-            case " ${allowed_platforms} " in
-              *" ${tuple} "*) ;;
-              *) echo "unsupported platform tuple: ${tuple}" >&2; exit 1;;
-            esac
-          done
+          # Pinned supported tuples, as structured JSON. Compared inside jq so no
+          # shell string mangling (newline trimming, word splitting) can smuggle
+          # an unchecked value into the emitted output; only checked fields are
+          # emitted. Kept in sync with the initializer tables; the copiertv
+          # mapping-agreement check enforces it.
+          allowed_platforms='[{"os":"linux","cpu":"x86_64","runner":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu"},{"os":"linux","cpu":"arm64","runner":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu"},{"os":"macos","cpu":"x86_64","runner":"macos-26-intel","target":"x86_64-apple-darwin"},{"os":"macos","cpu":"arm64","runner":"macos-26","target":"aarch64-apple-darwin"},{"os":"windows","cpu":"x86_64","runner":"windows-2025","target":"x86_64-pc-windows-msvc"},{"os":"windows","cpu":"arm64","runner":"windows-11-arm","target":"aarch64-pc-windows-msvc"}]'
+          validated="$(printf '%s' "${INPUT_PLATFORMS}" | jq -sc --argjson allowed "${allowed_platforms}" 'if length != 1 then error("platforms must be exactly one JSON value") else .[0] end | if type != "array" or length == 0 then error("platforms must be a nonempty JSON array") else . end | map(if type != "object" or keys != ["cpu","os","runner","target"] or ([.os,.cpu,.runner,.target] | map(type)) != ["string","string","string","string"] then error("each platform must be exactly {os, cpu, runner, target} strings") elif IN($allowed[]) | not then error("unsupported platform tuple") else {os, cpu, runner, target} end)')" || { echo 'platforms validation failed' >&2; exit 1; }
           echo "platforms=${validated}" >>${GITHUB_OUTPUT}
           echo "cargo-profile=${profile}" >>${GITHUB_OUTPUT}
 
