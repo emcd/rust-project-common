@@ -1,0 +1,66 @@
+name: release
+
+on:
+  push:
+    tags: [ 'v[0-9]+.*' ]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Skip actual publishing (test build only)'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+
+  initialize:
+    uses: ./.github/workflows/common-initializer.yaml
+    permissions: {}
+
+  release-gates:
+    needs: [initialize]
+    permissions:
+      contents: read
+    uses: emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@gha-1
+    with:
+      platforms: ${{ needs.initialize.outputs.platforms }}
+      cargo-profile: release
+      has-library: false
+
+  # Local per-platform packaging. Runs unconditionally: custom off or on,
+  # dry runs, and publication-off configurations all still package, because
+  # publishers and binaries must never run on unpackaged gates.
+  package:
+    needs: [initialize, release-gates]
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: ${{ fromJSON(needs.initialize.outputs.platforms) }}
+    runs-on: ${{ matrix.platform.runner }}
+    permissions:
+      contents: read
+    steps:
+
+      - name: Check Out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set Up Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Target
+        env:
+          TARGET_TRIPLE: ${{ matrix.platform.target }}
+        run: rustup target add "${TARGET_TRIPLE}"
+        shell: bash
+
+      - name: Generate Lockfile If Missing
+        run: test -f Cargo.lock || cargo generate-lockfile
+        shell: bash
+
+      - name: Package
+        run: cargo package --locked --no-verify

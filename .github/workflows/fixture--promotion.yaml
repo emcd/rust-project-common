@@ -1,0 +1,35 @@
+name: fixture-promotion
+
+# Template-owned promotion fixture caller. Pins the exact candidate commit
+# of the shared tester; runs on every push to this branch. Expected verdicts
+# are documented in README.md; evidence review must confirm failures land in
+# the intended gate/validation step, never in checkout or resolution.
+
+on:
+  push: {}
+
+jobs:
+
+  initialize:
+    uses: ./.github/workflows/common-initializer.yaml
+    permissions: {}
+
+  dev:
+    needs: [initialize]
+    permissions:
+      contents: read
+    uses: emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@b17f64dcedf54a0104a2174d0de04ac8b71a4c86
+    with:
+      platforms: ${{ needs.initialize.outputs.platforms }}
+      cargo-profile: dev
+      has-library: false
+
+  release:
+    needs: [initialize]
+    permissions:
+      contents: read
+    uses: emcd/rust-project-common/.github/workflows/xrepo--tester.yaml@b17f64dcedf54a0104a2174d0de04ac8b71a4c86
+    with:
+      platforms: ${{ needs.initialize.outputs.platforms }}
+      cargo-profile: release
+      has-library: false

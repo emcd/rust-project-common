@@ -1,0 +1,24 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: 0.10.0-14-g60612a0
+_src_path: .
+authors: ''
+cpu_architectures:
+- x86_64
+- arm64
+crate_name: fixture_promotion_bin
+crate_shape:
+- executable
+description: 'Promotion fixture: binary-only crate with clean gates.'
+enable_benchmarking: false
+enable_custom_ci: false
+enable_fuzzing: false
+enable_property_tests: false
+enable_publication: false
+gh_owner: emcd
+license: Apache-2.0
+operating_systems:
+- linux
+- macos
+project_name: fixture-promotion-bin
+rust_version: '1.98'
+workspace_mode: none
