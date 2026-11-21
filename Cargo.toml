@@ -1,0 +1,11 @@
+[package]
+name = "fixture_promotion_lib"
+version = "0.1.0"
+description = "Promotion fixture: library crate with clean gates."
+authors = []
+license = "Apache-2.0"
+edition = "2024"
+rust-version = "1.98"
+[lib]
+name = "fixture_promotion_lib"
+path = "src/lib.rs"

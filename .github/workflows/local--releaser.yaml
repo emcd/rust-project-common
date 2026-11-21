@@ -1,0 +1,29 @@
+name: local-releaser
+
+# Consumer-owned starting point for the template `custom-release` gate job.
+# Fill in real release gates; this stub fails loudly until replaced. Never
+# overwritten by template updates (_skip_if_exists).
+on:
+  workflow_call:
+    inputs:
+      platforms:
+        description: 'JSON array of {os, cpu, runner, target} platform objects.'
+        required: true
+        type: string
+      cargo-profile:
+        description: 'Cargo profile to gate: dev or release.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Fail Loudly Until Implemented
+        run: |
+          echo 'local--releaser.yaml is a stub: implement consumer release gates, keeping the declared inputs.' >&2
+          exit 1
