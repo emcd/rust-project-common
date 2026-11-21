@@ -220,6 +220,17 @@ print('command mapping OK: doctest=%s' % lib)
   "{project_directory}",
 ]
 
+# Rendered Rust sources must end with a newline: template CI has no Rust
+# toolchain for a real `fmt --check`, and an empty (newline-less) initial
+# file fails the consumer fmt gate on first render.
+[[commands]]
+args = [
+  "python3",
+  "-c",
+  "import pathlib,sys; d = pathlib.Path(sys.argv[1]) / 'src'; bad = [str(p) for p in sorted(d.rglob('*.rs')) if not p.read_bytes().endswith(b'\\n')]; assert not bad, bad; print('rust trailing newline OK: %d files' % len(list(d.rglob('*.rs'))))",
+  "{project_directory}",
+]
+
 # Every nextest invocation must name the canonical config file, which the
 # template renders (skip-if-exists) at the same path. Doctest gates use
 # cargo test and are exempt.
