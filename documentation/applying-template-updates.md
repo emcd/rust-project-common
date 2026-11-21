@@ -41,7 +41,35 @@ already-consumed repository with `copier update`.
    be migrated by hand at re-pin: add the declared inputs and rebind to
    `needs.initialize.outputs.platforms`. Copier rewrites rendered callers
    only, never consumer-owned readers.
-4. **Never hand-edit the answers file.** It is overwritten by Copier. Drive
+4. **Shared gates are hermetic; environmental suites live under an
+   explicit feature in custom gates.** Consumer suites MUST pass under
+   the shared gates with no ambient tools or services — this covers the
+   with-defaults doctest gates as well as the no-default-features nextest
+   gates. Suites needing environment move under an explicit non-default
+   Cargo feature exercised in the consumer-owned custom gates from
+   Principle 3, which provision the pinned dependency and fail if it is
+   absent or the expected suite did not run. The feature makes the suite
+   opt-in for a developer command, not optional for merge/release where
+   it proves a supported contract: wire the flag into every executing
+   gate (matrix, release, pre-push equivalents) and document the dev-seat
+   default, or live coverage rots silently. Keep bare `cargo test` fast
+   and hermetic; provide one documented maintainer command for full
+   validation on the same invocation as the project gates. Validate
+   defaults explicitly where the minimal-feature jobs leave coverage gaps,
+   and gate live suites as a module or target with a visible roster
+   (split mixed modules rather than gating their hermetic cases). Never
+   let the live feature be transitively enabled by ordinary product
+   features. Verify both legs — hermetic shared matrix and live suite
+   with the pinned dependency — on the same SHA before calling a retrofit
+   done. Use test results to verify that the expected cases ran;
+   passing the feature flag alone is not evidence.
+
+   Worked example: nbspec's `live-nb` feature gates its live interchange
+   tests behind Unix plus the flag (fail-closed without pinned nb kept);
+   hermetic tests stay in the shared gates; `local--tester` and
+   `local--releaser` pass the flag per cell so eligible Unix cells run
+   the live suite. The live cases are not compiled on Windows.
+5. **Never hand-edit the answers file.** It is overwritten by Copier. Drive
    answers with `--data-file` on copy, plus `--skip-answered` on update,
    and copy from the remote template source (`gh:emcd/rust-project-common`),
    tracking latest (the latest release Copier selects by default — not
@@ -50,12 +78,12 @@ already-consumed repository with `copier update`.
    Caveat: the public mirror can lag the template's production tree — if
    the fix you need is not yet on the mirror, copy from a reachable source
    instead; `--vcs-ref` can only select refs the source already has.
-5. **Populate agents after updating, before validating.** Run
+6. **Populate agents after updating, before validating.** Run
    `agentsmgr populate` after the copy/update and conflict resolution so
    template-owned agent files refresh — then run hooks and tests against
    the final tree, then commit. Validating before populating tests a tree
    that is about to change.
-6. **Install hooks; do not assume them.** Fresh clones ship sample-only
+7. **Install hooks; do not assume them.** Fresh clones ship sample-only
    `.git/hooks`, and every `fail_fast` gate silently no-ops until hooks
    are installed. Run `pre-commit install --config
    .auxiliary/configuration/pre-commit.yaml` (pre-commit preserves an
@@ -68,12 +96,12 @@ already-consumed repository with `copier update`.
    intended config, and distinguish installed dispatchers from successful
    stage execution. Do not silently bypass a custom `core.hooksPath`;
    handle or report it.
-7. **MSRV is a decision, not a default.** `rust-version` sets both the
+8. **MSRV is a decision, not a default.** `rust-version` sets both the
    manifest floor and the toolchain pin. Confirm the intended floor with
    the project owner instead of accepting the default blindly. Pinning an
    exact patch version to dodge environment issues is a workaround, not a
    fix — fix the environment instead.
-8. **Cross-repo workflows version independently of the template.** The
+9. **Cross-repo workflows version independently of the template.** The
    shared tester lives outside the template tree and is referenced by
    floating major tag (`@gha-1`), which rendered callers pin by default;
    every shared change cuts an immutable `@gha-X.Y` tag that advances the
@@ -88,7 +116,7 @@ already-consumed repository with `copier update`.
 - Saved answers file; remote template source.
 - Run the copy; review the full diff file by file.
 - Restore project-owned files; keep template-owned additions.
-- Install hooks (see Principle 6).
+- Install hooks (see `Install hooks; do not assume them` under Principles).
 - Run `agentsmgr populate`, then `cargo fmt --check`, clippy, the test
   suite, linecheck, and the relevant CI workflows.
 - Commit with the template ref recorded in the message.
