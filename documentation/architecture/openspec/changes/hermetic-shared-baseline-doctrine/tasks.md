@@ -8,4 +8,4 @@
 ## 2. Validation and review
 
 - [x] 2.1 Run `openspec validate --all --strict` green (structure check; note it does not check agreement among the change's own documents — sweep proposal/design/delta for the same claims by hand)
-- [ ] 2.2 Route the Tier-1 review packet to Reviewer General after operator pre-review; no implementation until Tier-1, Tier-2 (if engaged), and operator signoff
+- [x] 2.2 Route the Tier-1 review packet to Reviewer General after operator pre-review; no implementation until Tier-1, Tier-2 (if engaged), and operator signoff
