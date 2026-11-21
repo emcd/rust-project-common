@@ -1,0 +1,27 @@
+# Fixed answers for the promotion-red fixture crate.
+# Rendered with: copier copy --data-file fixtures/promotion/answers-red.yaml --defaults --overwrite --vcs-ref b17f64dcedf54a0104a2174d0de04ac8b71a4c86 <template> <dest>
+# then a deliberate clippy violation is added to src/lib.rs (see the branch
+# README). The rendered crate lives at the root of branch
+# fixture/promotion-red (never on master); this file records the exact inputs
+# for reproducibility.
+project_name: fixture-promotion-red
+crate_name: fixture_promotion_red
+description: "Promotion fixture: library crate with a deliberate gate violation."
+authors: ""
+license: Apache-2.0
+gh_owner: emcd
+rust_version: "1.98"
+crate_shape:
+  - library
+workspace_mode: none
+operating_systems:
+  - linux
+  - macos
+cpu_architectures:
+  - x86_64
+  - arm64
+enable_custom_ci: false
+enable_publication: false
+enable_fuzzing: false
+enable_benchmarking: false
+enable_property_tests: false
